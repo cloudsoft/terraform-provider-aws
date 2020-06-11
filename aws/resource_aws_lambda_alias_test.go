@@ -2,18 +2,18 @@ package aws
 
 import (
 	"fmt"
-	"regexp"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/lambda"
-	"github.com/hashicorp/terraform/helper/acctest"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 func TestAccAWSLambdaAlias_basic(t *testing.T) {
 	var conf lambda.AliasConfiguration
+	resourceName := "aws_lambda_alias.test"
 
 	rString := acctest.RandString(8)
 	roleName := fmt.Sprintf("tf_acc_role_lambda_alias_basic_%s", rString)
@@ -22,19 +22,32 @@ func TestAccAWSLambdaAlias_basic(t *testing.T) {
 	funcName := fmt.Sprintf("tf_acc_lambda_func_alias_basic_%s", rString)
 	aliasName := fmt.Sprintf("tf_acc_lambda_alias_basic_%s", rString)
 
-	resource.Test(t, resource.TestCase{
+	functionArnResourcePart := fmt.Sprintf("function:%s:%s", funcName, aliasName)
+
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAwsLambdaAliasDestroy,
 		Steps: []resource.TestStep{
-			resource.TestStep{
+			{
 				Config: testAccAwsLambdaAliasConfig(roleName, policyName, attachmentName, funcName, aliasName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckAwsLambdaAliasExists("aws_lambda_alias.lambda_alias_test", &conf),
-					testAccCheckAwsLambdaAttributes(&conf),
-					resource.TestMatchResourceAttr("aws_lambda_alias.lambda_alias_test", "arn",
-						regexp.MustCompile(`^arn:aws:lambda:[a-z]+-[a-z]+-[0-9]+:\d{12}:function:`+funcName+`:`+aliasName+`$`)),
+					testAccCheckAwsLambdaAliasExists(resourceName, &conf),
+					testAccCheckAwsLambdaAliasAttributes(&conf),
+					testAccCheckAwsLambdaAliasRoutingConfigDoesNotExist(&conf),
+					testAccCheckResourceAttrRegionalARN(resourceName, "arn", "lambda", functionArnResourcePart),
+					testAccCheckAwsLambdaAliasInvokeArn(resourceName, &conf),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateId:     fmt.Sprintf("%s/%s", funcName, aliasName),
+				ImportStateVerify: true,
+			},
+			{
+				Config:   testAccAwsLambdaAliasConfigUsingFunctionName(roleName, policyName, attachmentName, funcName, aliasName),
+				PlanOnly: true,
 			},
 		},
 	})
@@ -42,6 +55,7 @@ func TestAccAWSLambdaAlias_basic(t *testing.T) {
 
 func TestAccAWSLambdaAlias_nameupdate(t *testing.T) {
 	var conf lambda.AliasConfiguration
+	resourceName := "aws_lambda_alias.test"
 
 	rString := acctest.RandString(8)
 	roleName := fmt.Sprintf("tf_acc_role_lambda_alias_basic_%s", rString)
@@ -51,27 +65,76 @@ func TestAccAWSLambdaAlias_nameupdate(t *testing.T) {
 	aliasName := fmt.Sprintf("tf_acc_lambda_alias_basic_%s", rString)
 	aliasNameUpdate := fmt.Sprintf("tf_acc_lambda_alias_basic_%s", acctest.RandString(8))
 
-	resource.Test(t, resource.TestCase{
+	functionArnResourcePart := fmt.Sprintf("function:%s:%s", funcName, aliasName)
+	functionArnResourcePartUpdate := fmt.Sprintf("function:%s:%s", funcName, aliasNameUpdate)
+
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAwsLambdaAliasDestroy,
 		Steps: []resource.TestStep{
-			resource.TestStep{
+			{
 				Config: testAccAwsLambdaAliasConfig(roleName, policyName, attachmentName, funcName, aliasName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckAwsLambdaAliasExists("aws_lambda_alias.lambda_alias_test", &conf),
-					testAccCheckAwsLambdaAttributes(&conf),
-					resource.TestMatchResourceAttr("aws_lambda_alias.lambda_alias_test", "arn",
-						regexp.MustCompile(`^arn:aws:lambda:[a-z]+-[a-z]+-[0-9]+:\d{12}:function:`+funcName+`:`+aliasName+`$`)),
+					testAccCheckAwsLambdaAliasExists(resourceName, &conf),
+					testAccCheckAwsLambdaAliasAttributes(&conf),
+					testAccCheckResourceAttrRegionalARN(resourceName, "arn", "lambda", functionArnResourcePart),
 				),
 			},
-			resource.TestStep{
+			{
 				Config: testAccAwsLambdaAliasConfig(roleName, policyName, attachmentName, funcName, aliasNameUpdate),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckAwsLambdaAliasExists("aws_lambda_alias.lambda_alias_test", &conf),
-					testAccCheckAwsLambdaAttributes(&conf),
-					resource.TestMatchResourceAttr("aws_lambda_alias.lambda_alias_test", "arn",
-						regexp.MustCompile(`^arn:aws:lambda:[a-z]+-[a-z]+-[0-9]+:\d{12}:function:`+funcName+`:`+aliasNameUpdate+`$`)),
+					testAccCheckAwsLambdaAliasExists(resourceName, &conf),
+					testAccCheckAwsLambdaAliasAttributes(&conf),
+					testAccCheckResourceAttrRegionalARN(resourceName, "arn", "lambda", functionArnResourcePartUpdate),
+				),
+			},
+		},
+	})
+}
+
+func TestAccAWSLambdaAlias_routingconfig(t *testing.T) {
+	var conf lambda.AliasConfiguration
+	resourceName := "aws_lambda_alias.test"
+
+	rString := acctest.RandString(8)
+	roleName := fmt.Sprintf("tf_acc_role_lambda_alias_basic_%s", rString)
+	policyName := fmt.Sprintf("tf_acc_policy_lambda_alias_basic_%s", rString)
+	attachmentName := fmt.Sprintf("tf_acc_attachment_%s", rString)
+	funcName := fmt.Sprintf("tf_acc_lambda_func_alias_basic_%s", rString)
+	aliasName := fmt.Sprintf("tf_acc_lambda_alias_basic_%s", rString)
+
+	functionArnResourcePart := fmt.Sprintf("function:%s:%s", funcName, aliasName)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckAwsLambdaAliasDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAwsLambdaAliasConfig(roleName, policyName, attachmentName, funcName, aliasName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAwsLambdaAliasExists(resourceName, &conf),
+					testAccCheckAwsLambdaAliasAttributes(&conf),
+					testAccCheckResourceAttrRegionalARN(resourceName, "arn", "lambda", functionArnResourcePart),
+				),
+			},
+			{
+				Config: testAccAwsLambdaAliasConfigWithRoutingConfig(roleName, policyName, attachmentName, funcName, aliasName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAwsLambdaAliasExists(resourceName, &conf),
+					testAccCheckAwsLambdaAliasAttributes(&conf),
+					testAccCheckAwsLambdaAliasRoutingConfigExists(&conf),
+					testAccCheckResourceAttrRegionalARN(resourceName, "arn", "lambda", functionArnResourcePart),
+				),
+			},
+			{
+				Config: testAccAwsLambdaAliasConfig(roleName, policyName, attachmentName, funcName, aliasName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAwsLambdaAliasExists(resourceName, &conf),
+					testAccCheckAwsLambdaAliasAttributes(&conf),
+					testAccCheckAwsLambdaAliasRoutingConfigDoesNotExist(&conf),
+					testAccCheckResourceAttrRegionalARN(resourceName, "arn", "lambda", functionArnResourcePart),
 				),
 			},
 		},
@@ -128,7 +191,7 @@ func testAccCheckAwsLambdaAliasExists(n string, mapping *lambda.AliasConfigurati
 	}
 }
 
-func testAccCheckAwsLambdaAttributes(mapping *lambda.AliasConfiguration) resource.TestCheckFunc {
+func testAccCheckAwsLambdaAliasAttributes(mapping *lambda.AliasConfiguration) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		name := *mapping.Name
 		arn := *mapping.AliasArn
@@ -142,7 +205,39 @@ func testAccCheckAwsLambdaAttributes(mapping *lambda.AliasConfiguration) resourc
 	}
 }
 
-func testAccAwsLambdaAliasConfig(roleName, policyName, attachmentName, funcName, aliasName string) string {
+func testAccCheckAwsLambdaAliasInvokeArn(name string, mapping *lambda.AliasConfiguration) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		arn := aws.StringValue(mapping.AliasArn)
+		return testAccCheckResourceAttrRegionalARNAccountID(name, "invoke_arn", "apigateway", "lambda", fmt.Sprintf("path/2015-03-31/functions/%s/invocations", arn))(s)
+	}
+}
+
+func testAccCheckAwsLambdaAliasRoutingConfigExists(mapping *lambda.AliasConfiguration) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		routingConfig := mapping.RoutingConfig
+
+		if routingConfig == nil {
+			return fmt.Errorf("Could not read Lambda alias routing config")
+		}
+		if len(routingConfig.AdditionalVersionWeights) != 1 {
+			return fmt.Errorf("Could not read Lambda alias additional version weights")
+		}
+		return nil
+	}
+}
+
+func testAccCheckAwsLambdaAliasRoutingConfigDoesNotExist(mapping *lambda.AliasConfiguration) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		routingConfig := mapping.RoutingConfig
+
+		if routingConfig != nil {
+			return fmt.Errorf("Lambda alias routing config still exists after removal")
+		}
+		return nil
+	}
+}
+
+func testAccAwsLambdaAliasBaseConfig(roleName, policyName, attachmentName string) string {
 	return fmt.Sprintf(`
 resource "aws_iam_role" "iam_for_lambda" {
   name = "%s"
@@ -190,19 +285,80 @@ resource "aws_iam_policy_attachment" "policy_attachment_for_role" {
   roles      = ["${aws_iam_role.iam_for_lambda.name}"]
   policy_arn = "${aws_iam_policy.policy_for_role.arn}"
 }
-
-resource "aws_lambda_function" "lambda_function_test_create" {
-  filename      = "test-fixtures/lambdatest.zip"
-  function_name = "%s"
-  role          = "${aws_iam_role.iam_for_lambda.arn}"
-  handler       = "exports.example"
-  runtime       = "nodejs4.3"
+`, roleName, policyName, attachmentName)
 }
 
-resource "aws_lambda_alias" "lambda_alias_test" {
+func testAccAwsLambdaAliasConfig(roleName, policyName, attachmentName, funcName, aliasName string) string {
+	return composeConfig(
+		testAccAwsLambdaAliasBaseConfig(roleName, policyName, attachmentName),
+		fmt.Sprintf(`
+resource "aws_lambda_function" "test" {
+  filename         = "test-fixtures/lambdatest.zip"
+  function_name    = "%s"
+  role             = "${aws_iam_role.iam_for_lambda.arn}"
+  handler          = "exports.example"
+  runtime          = "nodejs12.x"
+  source_code_hash = "${filebase64sha256("test-fixtures/lambdatest.zip")}"
+  publish          = "true"
+}
+
+resource "aws_lambda_alias" "test" {
   name             = "%s"
   description      = "a sample description"
-  function_name    = "${aws_lambda_function.lambda_function_test_create.arn}"
-  function_version = "$LATEST"
-}`, roleName, policyName, attachmentName, funcName, aliasName)
+  function_name    = "${aws_lambda_function.test.arn}"
+  function_version = "1"
+}
+`, funcName, aliasName))
+}
+
+func testAccAwsLambdaAliasConfigUsingFunctionName(roleName, policyName, attachmentName, funcName, aliasName string) string {
+	return composeConfig(
+		testAccAwsLambdaAliasBaseConfig(roleName, policyName, attachmentName),
+		fmt.Sprintf(`
+resource "aws_lambda_function" "test" {
+  filename         = "test-fixtures/lambdatest.zip"
+  function_name    = "%s"
+  role             = "${aws_iam_role.iam_for_lambda.arn}"
+  handler          = "exports.example"
+  runtime          = "nodejs12.x"
+  source_code_hash = "${filebase64sha256("test-fixtures/lambdatest.zip")}"
+  publish          = "true"
+}
+
+resource "aws_lambda_alias" "test" {
+  name             = "%s"
+  description      = "a sample description"
+  function_name    = "${aws_lambda_function.test.function_name}"
+  function_version = "1"
+}
+`, funcName, aliasName))
+}
+
+func testAccAwsLambdaAliasConfigWithRoutingConfig(roleName, policyName, attachmentName, funcName, aliasName string) string {
+	return composeConfig(
+		testAccAwsLambdaAliasBaseConfig(roleName, policyName, attachmentName),
+		fmt.Sprintf(`
+resource "aws_lambda_function" "test" {
+  filename         = "test-fixtures/lambdatest_modified.zip"
+  function_name    = "%s"
+  role             = "${aws_iam_role.iam_for_lambda.arn}"
+  handler          = "exports.example"
+  runtime          = "nodejs12.x"
+  source_code_hash = "${filebase64sha256("test-fixtures/lambdatest_modified.zip")}"
+  publish          = "true"
+}
+
+resource "aws_lambda_alias" "test" {
+  name             = "%s"
+  description      = "a sample description"
+  function_name    = "${aws_lambda_function.test.arn}"
+  function_version = "1"
+
+  routing_config {
+    additional_version_weights = {
+      "2" = 0.5
+    }
+  }
+}
+`, funcName, aliasName))
 }

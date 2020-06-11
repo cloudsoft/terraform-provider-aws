@@ -6,9 +6,10 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/glue"
-	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 )
 
 func resourceAwsGlueConnection() *schema.Resource {
@@ -22,6 +23,10 @@ func resourceAwsGlueConnection() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
+			"arn": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"catalog_id": {
 				Type:     schema.TypeString,
 				ForceNew: true,
@@ -29,8 +34,10 @@ func resourceAwsGlueConnection() *schema.Resource {
 				Computed: true,
 			},
 			"connection_properties": {
-				Type:     schema.TypeMap,
-				Required: true,
+				Type:      schema.TypeMap,
+				Required:  true,
+				Sensitive: true,
+				Elem:      &schema.Schema{Type: schema.TypeString},
 			},
 			"connection_type": {
 				Type:     schema.TypeString,
@@ -39,6 +46,8 @@ func resourceAwsGlueConnection() *schema.Resource {
 				ValidateFunc: validation.StringInSlice([]string{
 					glue.ConnectionTypeJdbc,
 					glue.ConnectionTypeSftp,
+					glue.ConnectionTypeMongodb,
+					glue.ConnectionTypeKafka,
 				}, false),
 			},
 			"description": {
@@ -62,6 +71,10 @@ func resourceAwsGlueConnection() *schema.Resource {
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"availability_zone": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
 						"security_group_id_list": {
 							Type:     schema.TypeList,
 							Optional: true,
@@ -134,6 +147,15 @@ func resourceAwsGlueConnectionRead(d *schema.ResourceData, meta interface{}) err
 		d.SetId("")
 		return nil
 	}
+
+	connectionArn := arn.ARN{
+		Partition: meta.(*AWSClient).partition,
+		Service:   "glue",
+		Region:    meta.(*AWSClient).region,
+		AccountID: meta.(*AWSClient).accountid,
+		Resource:  fmt.Sprintf("connection/%s", connectionName),
+	}.String()
+	d.Set("arn", connectionArn)
 
 	d.Set("catalog_id", catalogID)
 	if err := d.Set("connection_properties", aws.StringValueMap(connection.ConnectionProperties)); err != nil {
@@ -249,6 +271,10 @@ func expandGlueConnectionInput(d *schema.ResourceData) *glue.ConnectionInput {
 func expandGluePhysicalConnectionRequirements(m map[string]interface{}) *glue.PhysicalConnectionRequirements {
 	physicalConnectionRequirements := &glue.PhysicalConnectionRequirements{}
 
+	if v, ok := m["availability_zone"]; ok {
+		physicalConnectionRequirements.AvailabilityZone = aws.String(v.(string))
+	}
+
 	if v, ok := m["security_group_id_list"]; ok {
 		physicalConnectionRequirements.SecurityGroupIdList = expandStringList(v.([]interface{}))
 	}
@@ -266,6 +292,7 @@ func flattenGluePhysicalConnectionRequirements(physicalConnectionRequirements *g
 	}
 
 	m := map[string]interface{}{
+		"availability_zone":      aws.StringValue(physicalConnectionRequirements.AvailabilityZone),
 		"security_group_id_list": flattenStringList(physicalConnectionRequirements.SecurityGroupIdList),
 		"subnet_id":              aws.StringValue(physicalConnectionRequirements.SubnetId),
 	}

@@ -342,8 +342,8 @@ func resourceAwsServiceCatalogProductUpdate(d *schema.ResourceData, meta interfa
 		_, err := conn.UpdateProvisioningArtifact(&servicecatalog.UpdateProvisioningArtifactInput{
 			ProductId:              aws.String(d.Id()),
 			ProvisioningArtifactId: aws.String(paId),
-			Name:        aws.String(newProvisioningArtifact["name"].(string)),
-			Description: aws.String(newProvisioningArtifact["description"].(string)),
+			Name:                   aws.String(newProvisioningArtifact["name"].(string)),
+			Description:            aws.String(newProvisioningArtifact["description"].(string)),
 		})
 		if err != nil {
 			return fmt.Errorf("unable to update provisioning artifact %s for product %s due to %s", d.Id(), paId, err)

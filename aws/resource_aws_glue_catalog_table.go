@@ -7,7 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/glue"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
 func resourceAwsGlueCatalogTable() *schema.Resource {
@@ -265,6 +265,7 @@ func resourceAwsGlueCatalogTableRead(d *schema.ResourceData, meta interface{}) e
 		if isAWSErr(err, glue.ErrCodeEntityNotFoundException, "") {
 			log.Printf("[WARN] Glue Catalog Table (%s) not found, removing from state", d.Id())
 			d.SetId("")
+			return nil
 		}
 
 		return fmt.Errorf("Error reading Glue Catalog Table: %s", err)
@@ -387,7 +388,7 @@ func expandGlueTableInput(d *schema.ResourceData) *glue.TableInput {
 }
 
 func expandGlueStorageDescriptor(l []interface{}) *glue.StorageDescriptor {
-	if len(l) == 0 {
+	if len(l) == 0 || l[0] == nil {
 		return nil
 	}
 
@@ -478,7 +479,7 @@ func expandGlueColumns(columns []interface{}) []*glue.Column {
 }
 
 func expandGlueSerDeInfo(l []interface{}) *glue.SerDeInfo {
-	if len(l) == 0 {
+	if len(l) == 0 || l[0] == nil {
 		return nil
 	}
 
@@ -525,7 +526,7 @@ func expandGlueSortColumns(columns []interface{}) []*glue.Order {
 }
 
 func expandGlueSkewedInfo(l []interface{}) *glue.SkewedInfo {
-	if len(l) == 0 {
+	if len(l) == 0 || l[0] == nil {
 		return nil
 	}
 
