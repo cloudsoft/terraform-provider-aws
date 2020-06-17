@@ -15,10 +15,10 @@ import (
 func resourceAwsServiceCatalogConstraint() *schema.Resource {
 	var awsResourceIdPattern = regexp.MustCompile("^[a-zA-Z0-9_\\-]*")
 	return &schema.Resource{
-		Create: createConstraint,
-		Read:   readConstraint,
-		Update: updateConstraint,
-		Delete: deleteConstraint,
+		Create: resourceAwsServiceCatalogConstraintCreate,
+		Read:   resourceAwsServiceCatalogConstraintRead,
+		Update: resourceAwsServiceCatalogConstraintUpdate,
+		Delete: resourceAwsServiceCatalogConstraintDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -74,7 +74,7 @@ func resourceAwsServiceCatalogConstraint() *schema.Resource {
 	}
 }
 
-func createConstraint(d *schema.ResourceData, meta interface{}) error {
+func resourceAwsServiceCatalogConstraintCreate(d *schema.ResourceData, meta interface{}) error {
 	input := servicecatalog.CreateConstraintInput{
 		Parameters:  aws.String(d.Get("parameters").(string)),
 		PortfolioId: aws.String(d.Get("portfolio_id").(string)),
@@ -90,10 +90,10 @@ func createConstraint(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("creating Constraint failed: %s", err.Error())
 	}
 	d.SetId(*result.ConstraintDetail.ConstraintId)
-	return readConstraint(d, meta)
+	return resourceAwsServiceCatalogConstraintRead(d, meta)
 }
 
-func readConstraint(d *schema.ResourceData, meta interface{}) error {
+func resourceAwsServiceCatalogConstraintRead(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).scconn
 	input := servicecatalog.DescribeConstraintInput{
 		Id: aws.String(d.Id()),
@@ -118,7 +118,7 @@ func readConstraint(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func updateConstraint(d *schema.ResourceData, meta interface{}) error {
+func resourceAwsServiceCatalogConstraintUpdate(d *schema.ResourceData, meta interface{}) error {
 	input := servicecatalog.UpdateConstraintInput{
 		Id: aws.String(d.Id()),
 	}
@@ -144,10 +144,10 @@ func updateConstraint(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return fmt.Errorf("updating Service Catalog Constraint '%s' failed: %s", *input.Id, err.Error())
 	}
-	return readConstraint(d, meta)
+	return resourceAwsServiceCatalogConstraintRead(d, meta)
 }
 
-func deleteConstraint(d *schema.ResourceData, meta interface{}) error {
+func resourceAwsServiceCatalogConstraintDelete(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).scconn
 	input := servicecatalog.DeleteConstraintInput{Id: aws.String(d.Id())}
 	_, err := conn.DeleteConstraint(&input)
