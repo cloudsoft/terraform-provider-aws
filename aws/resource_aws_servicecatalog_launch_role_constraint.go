@@ -119,9 +119,40 @@ func readConstraint(d *schema.ResourceData, meta interface{}) error {
 }
 
 func updateConstraint(d *schema.ResourceData, meta interface{}) error {
+	input := servicecatalog.UpdateConstraintInput{
+		Id: aws.String(d.Id()),
+	}
+	if d.HasChange("description") {
+		v, _ := d.GetOk("description")
+		input.Description = aws.String(v.(string))
+	}
+	if d.HasChange("portfolio_id") {
+		//TODO - can't update - requires replace
+	}
+	if d.HasChange("") {
+		//TODO - can't update - requires replace
+	}
+	if d.HasChange("parameters") {
+		v, _ := d.GetOk("parameters")
+		input.Parameters = aws.String(v.(string))
+	}
+	if d.HasChange("") {
+		//TODO - can't update - requires replace
+	}
+	conn := meta.(*AWSClient).scconn
+	_, err := conn.UpdateConstraint(&input)
+	if err != nil {
+		return fmt.Errorf("updating Service Catalog Constraint '%s' failed: %s", *input.Id, err.Error())
+	}
 	return readConstraint(d, meta)
 }
 
 func deleteConstraint(d *schema.ResourceData, meta interface{}) error {
-	return readConstraint(d, meta)
+	conn := meta.(*AWSClient).scconn
+	input := servicecatalog.DeleteConstraintInput{Id: aws.String(d.Id())}
+	_, err := conn.DeleteConstraint(&input)
+	if err != nil {
+		return fmt.Errorf("deleting Service Catalog Constraint '%s' failed: %s", *input.Id, err.Error())
+	}
+	return nil
 }
