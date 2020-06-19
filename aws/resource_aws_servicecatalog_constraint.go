@@ -84,8 +84,13 @@ func resourceAwsServiceCatalogConstraint() *schema.Resource {
 }
 
 func resourceAwsServiceCatalogConstraintCreate(d *schema.ResourceData, meta interface{}) error {
+	jsonParameters := d.Get("parameters").(string)
+	return resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonParameters)
+}
+
+func resourceAwsServiceCatalogConstraintCreateFromJson(d *schema.ResourceData, meta interface{}, jsonParameters string) error {
 	input := servicecatalog.CreateConstraintInput{
-		Parameters:  aws.String(d.Get("parameters").(string)),
+		Parameters:  aws.String(jsonParameters),
 		PortfolioId: aws.String(d.Get("portfolio_id").(string)),
 		ProductId:   aws.String(d.Get("product_id").(string)),
 		Type:        aws.String(d.Get("type").(string)),
