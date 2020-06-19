@@ -12,6 +12,15 @@ import (
 	"time"
 )
 
+/*
+
+This resource is intended to be used as a base for the following resources.
+
+It can be used as-is where the parameters are supplied as a JSON document.
+
+Use of the wrapper resources, aws_servicecatalog_launch_role_constraint, etc, are suggested.
+
+*/
 func resourceAwsServiceCatalogConstraint() *schema.Resource {
 	var awsResourceIdPattern = regexp.MustCompile("^[a-zA-Z0-9_\\-]*")
 	return &schema.Resource{
@@ -29,30 +38,30 @@ func resourceAwsServiceCatalogConstraint() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			"description": {
-				Type: schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
 				ValidateFunc: validation.StringLenBetween(1, 100),
 			},
 			"parameters": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Required: true,
 			},
 			"portfolio_id": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Required: true,
 				ValidateFunc: validation.StringMatch(
 					awsResourceIdPattern,
 					"invalid id format"),
 			},
 			"product_id": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Required: true,
 				ValidateFunc: validation.StringMatch(
 					awsResourceIdPattern,
 					"invalid id format"),
 			},
 			"type": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Required: true,
 				ValidateFunc: validation.StringInSlice([]string{
 					"LAUNCH",
@@ -63,11 +72,11 @@ func resourceAwsServiceCatalogConstraint() *schema.Resource {
 					false),
 			},
 			"owner": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 			"status": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 		},
@@ -85,12 +94,24 @@ func resourceAwsServiceCatalogConstraintCreate(d *schema.ResourceData, meta inte
 		input.Description = aws.String(v.(string))
 	}
 	conn := meta.(*AWSClient).scconn
-	result, err := conn.CreateConstraint(&input)
-	if err != nil {
-		return fmt.Errorf("creating Constraint failed: %s", err.Error())
+	retryCountdown := 10
+	retrySleepDuration := 10 * time.Second
+	for retryCountdown > 0 {
+		retryCountdown--
+		result, err := conn.CreateConstraint(&input)
+		if err != nil {
+			if scErr, ok := err.(awserr.Error); ok && scErr.Code() == servicecatalog.ErrCodeResourceNotFoundException {
+				log.Printf("Resource not found - retrying...")
+				time.Sleep(retrySleepDuration)
+			} else {
+				return fmt.Errorf("creating Constraint failed: %s", err.Error())
+			}
+		} else {
+			d.SetId(*result.ConstraintDetail.ConstraintId)
+			return resourceAwsServiceCatalogConstraintRead(d, meta)
+		}
 	}
-	d.SetId(*result.ConstraintDetail.ConstraintId)
-	return resourceAwsServiceCatalogConstraintRead(d, meta)
+	return fmt.Errorf("creating Constraint failed - retry time out")
 }
 
 func resourceAwsServiceCatalogConstraintRead(d *schema.ResourceData, meta interface{}) error {
