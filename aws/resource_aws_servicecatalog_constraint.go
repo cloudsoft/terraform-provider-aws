@@ -156,6 +156,19 @@ func resourceAwsServiceCatalogConstraintUpdate(d *schema.ResourceData, meta inte
 	input := servicecatalog.UpdateConstraintInput{
 		Id: aws.String(d.Id()),
 	}
+	if d.HasChange("parameters") {
+		v, _ := d.GetOk("parameters")
+		input.Parameters = aws.String(v.(string))
+	}
+	err2 := resourceAwsServiceCatalogConstraintUpdateBase(d, meta, input)
+	if err2 != nil {
+		return err2
+	}
+	return resourceAwsServiceCatalogConstraintRead(d, meta)
+}
+
+func resourceAwsServiceCatalogConstraintUpdateBase(d *schema.ResourceData, meta interface{}, input servicecatalog.UpdateConstraintInput) error {
+	input.Id = aws.String(d.Id())
 	if d.HasChange("description") {
 		v, _ := d.GetOk("description")
 		input.Description = aws.String(v.(string))
@@ -166,10 +179,6 @@ func resourceAwsServiceCatalogConstraintUpdate(d *schema.ResourceData, meta inte
 	if d.HasChange("") {
 		//TODO - can't update - requires replace
 	}
-	if d.HasChange("parameters") {
-		v, _ := d.GetOk("parameters")
-		input.Parameters = aws.String(v.(string))
-	}
 	if d.HasChange("") {
 		//TODO - can't update - requires replace
 	}
@@ -178,7 +187,7 @@ func resourceAwsServiceCatalogConstraintUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return fmt.Errorf("updating Service Catalog Constraint '%s' failed: %s", *input.Id, err.Error())
 	}
-	return resourceAwsServiceCatalogConstraintRead(d, meta)
+	return nil
 }
 
 func resourceAwsServiceCatalogConstraintDelete(d *schema.ResourceData, meta interface{}) error {

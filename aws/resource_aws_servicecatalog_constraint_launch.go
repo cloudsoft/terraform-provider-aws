@@ -3,6 +3,8 @@ package aws
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	"regexp"
@@ -70,11 +72,23 @@ func resourceAwsServiceCatalogConstraintLaunch() *schema.Resource {
 }
 
 func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, meta interface{}) error {
+	jsonDoc, errJson := resourceAwsServiceCatalogConstraintLaunchJsonParameters(d)
+	if errJson != nil {
+		return errJson
+	}
+	errCreate := resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonDoc)
+	if errCreate != nil {
+		return errCreate
+	}
+	return resourceAwsServiceCatalogConstraintLaunchRead(d, meta)
+}
+
+func resourceAwsServiceCatalogConstraintLaunchJsonParameters(d *schema.ResourceData) (string, error) {
 	var jsonDoc = ""
 	if localRoleName, localRoleNameProvided := d.GetOk("local_role_name"); localRoleNameProvided {
 		// local role name provided
 		if _, roleArnProvided := d.GetOk("role_arn"); roleArnProvided {
-			return fmt.Errorf("both 'local_role_name' and 'role_arn' should not be provided")
+			return "", fmt.Errorf("both 'local_role_name' and 'role_arn' should not be provided")
 		}
 		// we have localRoleName
 		jsonDoc = fmt.Sprintf(`{"LocalRoleName": "%s"}`, localRoleName.(string))
@@ -83,14 +97,10 @@ func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, met
 			// we have roleArn
 			jsonDoc = fmt.Sprintf(`{"RoleArn" : "%s"}`, roleArn.(string))
 		} else {
-			return fmt.Errorf("either 'local_role_name' or 'role_arn' should be provided")
+			return "", fmt.Errorf("either 'local_role_name' or 'role_arn' should be provided")
 		}
 	}
-	err := resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonDoc)
-	if err != nil {
-		return err
-	}
-	return resourceAwsServiceCatalogConstraintLaunchRead(d, meta)
+	return jsonDoc, nil
 }
 
 func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta interface{}) error {
@@ -115,11 +125,21 @@ func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta 
 }
 
 func resourceAwsServiceCatalogConstraintLaunchUpdate(d *schema.ResourceData, meta interface{}) error {
-	//TODO
+	input := servicecatalog.UpdateConstraintInput{}
+	if d.HasChanges("launch_role_arn", "role_arn") {
+		parameters, err := resourceAwsServiceCatalogConstraintLaunchJsonParameters(d)
+		if err != nil {
+			return err
+		}
+		input.Parameters = aws.String(parameters)
+	}
+	err := resourceAwsServiceCatalogConstraintUpdateBase(d, meta, input)
+	if err != nil {
+		return err
+	}
 	return resourceAwsServiceCatalogConstraintLaunchRead(d, meta)
 }
 
 func resourceAwsServiceCatalogConstraintLaunchDelete(d *schema.ResourceData, meta interface{}) error {
-	//TODO
-	return nil
+	return resourceAwsServiceCatalogConstraintDelete(d, meta)
 }
