@@ -85,15 +85,16 @@ func resourceAwsServiceCatalogConstraint() *schema.Resource {
 
 func resourceAwsServiceCatalogConstraintCreate(d *schema.ResourceData, meta interface{}) error {
 	jsonParameters := d.Get("parameters").(string)
-	return resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonParameters)
+	constraintType := d.Get("type").(string)
+	return resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonParameters, constraintType)
 }
 
-func resourceAwsServiceCatalogConstraintCreateFromJson(d *schema.ResourceData, meta interface{}, jsonParameters string) error {
+func resourceAwsServiceCatalogConstraintCreateFromJson(d *schema.ResourceData, meta interface{}, jsonParameters string, constraintType string) error {
 	input := servicecatalog.CreateConstraintInput{
 		Parameters:  aws.String(jsonParameters),
 		PortfolioId: aws.String(d.Get("portfolio_id").(string)),
 		ProductId:   aws.String(d.Get("product_id").(string)),
-		Type:        aws.String(d.Get("type").(string)),
+		Type:        aws.String(constraintType),
 	}
 	if v, ok := d.GetOk("description"); ok {
 		input.Description = aws.String(v.(string))
@@ -120,11 +121,10 @@ func resourceAwsServiceCatalogConstraintCreateFromJson(d *schema.ResourceData, m
 }
 
 func resourceAwsServiceCatalogConstraintRead(d *schema.ResourceData, meta interface{}) error {
-	constraint, err := resourceAwsServiceCatalogConstraintReadBase(d, meta)
+	_, err := resourceAwsServiceCatalogConstraintReadBase(d, meta)
 	if err != nil {
 		return err
 	}
-	d.Set("parameters", constraint.ConstraintParameters)
 	return nil
 }
 
@@ -149,6 +149,7 @@ func resourceAwsServiceCatalogConstraintReadBase(d *schema.ResourceData, meta in
 	d.Set("type", details.Type)
 	d.Set("owner", details.Owner)
 	d.Set("status", constraint.Status)
+	d.Set("parameters", constraint.ConstraintParameters)
 	return constraint, nil
 }
 

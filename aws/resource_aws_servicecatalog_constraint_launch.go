@@ -35,11 +35,13 @@ func resourceAwsServiceCatalogConstraintLaunch() *schema.Resource {
 			// one of local_role_name or role_arn but not both
 			"local_role_name": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				ConflictsWith: []string{"role_arn"},
 			},
 			"role_arn": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				ConflictsWith: []string{"local_role_name"},
 			},
 			"portfolio_id": {
 				Type:     schema.TypeString,
@@ -67,6 +69,10 @@ func resourceAwsServiceCatalogConstraintLaunch() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"type": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -76,7 +82,7 @@ func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, met
 	if errJson != nil {
 		return errJson
 	}
-	errCreate := resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonDoc)
+	errCreate := resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonDoc, "LAUNCH")
 	if errCreate != nil {
 		return errCreate
 	}
