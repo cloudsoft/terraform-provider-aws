@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -69,23 +70,23 @@ func resourceAwsServiceCatalogConstraintLaunch() *schema.Resource {
 }
 
 func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, meta interface{}) error {
-	var json = ""
+	var jsonDoc = ""
 	if localRoleName, localRoleNameProvided := d.GetOk("local_role_name"); localRoleNameProvided {
 		// local role name provided
 		if _, roleArnProvided := d.GetOk("role_arn"); roleArnProvided {
 			return fmt.Errorf("both 'local_role_name' and 'role_arn' should not be provided")
 		}
 		// we have localRoleName
-		json = fmt.Sprintf(`{"LocalRoleName": "%s"}`, localRoleName.(string))
+		jsonDoc = fmt.Sprintf(`{"LocalRoleName": "%s"}`, localRoleName.(string))
 	} else {
 		if roleArn, roleArnProvided := d.GetOk("role_arn"); roleArnProvided {
 			// we have roleArn
-			json = fmt.Sprintf(`{"RoleArn" : "%s"}`, roleArn.(string))
+			jsonDoc = fmt.Sprintf(`{"RoleArn" : "%s"}`, roleArn.(string))
 		} else {
 			return fmt.Errorf("either 'local_role_name' or 'role_arn' should be provided")
 		}
 	}
-	err := resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, json)
+	err := resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonDoc)
 	if err != nil {
 		return err
 	}
@@ -93,7 +94,23 @@ func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, met
 }
 
 func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta interface{}) error {
-	//TODO
+	constraint, err := resourceAwsServiceCatalogConstraintReadBase(d, meta)
+	if err != nil {
+		return err
+	}
+	var jsonDoc *string = constraint.ConstraintParameters
+	var bytes []byte = []byte(*jsonDoc)
+	type LaunchParameters struct {
+		LocalRoleName string
+		RoleArn string
+	}
+	var launchParameters LaunchParameters
+	err = json.Unmarshal(bytes, &launchParameters)
+	if err != nil {
+		return err
+	}
+	d.Set("local_role_name", launchParameters.LocalRoleName)
+	d.Set("role_arn", launchParameters.RoleArn)
 	return nil
 }
 

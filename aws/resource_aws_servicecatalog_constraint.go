@@ -120,6 +120,15 @@ func resourceAwsServiceCatalogConstraintCreateFromJson(d *schema.ResourceData, m
 }
 
 func resourceAwsServiceCatalogConstraintRead(d *schema.ResourceData, meta interface{}) error {
+	constraint, err := resourceAwsServiceCatalogConstraintReadBase(d, meta)
+	if err != nil {
+		return err
+	}
+	d.Set("parameters", constraint.ConstraintParameters)
+	return nil
+}
+
+func resourceAwsServiceCatalogConstraintReadBase(d *schema.ResourceData, meta interface{}) (*servicecatalog.DescribeConstraintOutput, error) {
 	conn := meta.(*AWSClient).scconn
 	input := servicecatalog.DescribeConstraintInput{
 		Id: aws.String(d.Id()),
@@ -129,19 +138,18 @@ func resourceAwsServiceCatalogConstraintRead(d *schema.ResourceData, meta interf
 		if scErr, ok := err.(awserr.Error); ok && scErr.Code() == servicecatalog.ErrCodeResourceNotFoundException {
 			log.Printf("[WARN] Service Catalog Constraint %s not found, removing from state", d.Id())
 			d.SetId("")
-			return nil
+			return nil, nil
 		}
-		return fmt.Errorf("reading Service Catalog Constraint '%s' failed: %s", *input.Id, err.Error())
+		return nil, fmt.Errorf("reading Service Catalog Constraint '%s' failed: %s", *input.Id, err.Error())
 	}
 	details := constraint.ConstraintDetail
 	d.Set("description", details.Description)
 	d.Set("portfolio_id", details.PortfolioId)
 	d.Set("product_id", details.ProductId)
-	d.Set("parameters", constraint.ConstraintParameters)
 	d.Set("type", details.Type)
 	d.Set("owner", details.Owner)
 	d.Set("status", constraint.Status)
-	return nil
+	return constraint, nil
 }
 
 func resourceAwsServiceCatalogConstraintUpdate(d *schema.ResourceData, meta interface{}) error {
