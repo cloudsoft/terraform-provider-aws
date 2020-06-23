@@ -125,8 +125,12 @@ func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta 
 	if err != nil {
 		return err
 	}
-	d.Set("local_role_name", launchParameters.LocalRoleName)
-	d.Set("role_arn", launchParameters.RoleArn)
+	if launchParameters.LocalRoleName != "" {
+		d.Set("local_role_name", launchParameters.LocalRoleName)
+	}
+	if launchParameters.RoleArn != "" {
+		d.Set("role_arn", launchParameters.RoleArn)
+	}
 	return nil
 }
 
