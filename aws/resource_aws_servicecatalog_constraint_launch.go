@@ -34,13 +34,13 @@ func resourceAwsServiceCatalogConstraintLaunch() *schema.Resource {
 			},
 			// one of local_role_name or role_arn but not both
 			"local_role_name": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:          schema.TypeString,
+				Optional:      true,
 				ConflictsWith: []string{"role_arn"},
 			},
 			"role_arn": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:          schema.TypeString,
+				Optional:      true,
 				ConflictsWith: []string{"local_role_name"},
 			},
 			"portfolio_id": {
@@ -118,7 +118,7 @@ func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta 
 	var bytes []byte = []byte(*jsonDoc)
 	type LaunchParameters struct {
 		LocalRoleName string
-		RoleArn string
+		RoleArn       string
 	}
 	var launchParameters LaunchParameters
 	err = json.Unmarshal(bytes, &launchParameters)

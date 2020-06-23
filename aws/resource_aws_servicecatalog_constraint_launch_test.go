@@ -28,7 +28,7 @@ func TestAccAwsServiceCatalogConstraintLaunch_Basic(t *testing.T) {
 			},
 			{
 				//PreConfig: testAccAwsServiceCatalogConstraintLaunchRolePrepPause(),
-				Config:    testAccAwsServiceCatalogConstraintLaunchConfig(salt),
+				Config: testAccAwsServiceCatalogConstraintLaunchConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraintLaunch(roleArnResourceName, &roleArnDco),
 					resource.TestCheckResourceAttrSet(roleArnResourceName, "portfolio_id"),
@@ -191,15 +191,17 @@ resource "aws_servicecatalog_constraint_launch" "test_role_arn" {
   role_arn = aws_iam_role.test.arn
   portfolio_id = aws_servicecatalog_portfolio.test_a.id
   product_id = aws_servicecatalog_product.test.id
+  depends_on = [aws_servicecatalog_portfolio_product_association.test_a]
 }
 resource "aws_servicecatalog_constraint_launch" "test_local_role_name" {
- description = "description"
- local_role_name = %[1]q
- portfolio_id = aws_servicecatalog_portfolio.test_b.id
- product_id = aws_servicecatalog_product.test.id
+  description = "description"
+  local_role_name = %[1]q
+  portfolio_id = aws_servicecatalog_portfolio.test_b.id
+  product_id = aws_servicecatalog_product.test.id
+  depends_on = [aws_servicecatalog_portfolio_product_association.test_b]
 }
 `,
-salt)
+		salt)
 	template := requirements + constraint
 	return template
 }

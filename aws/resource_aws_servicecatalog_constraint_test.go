@@ -25,7 +25,7 @@ func TestAccAwsServiceCatalogConstraint_Basic(t *testing.T) {
 			},
 			{
 				PreConfig: testAccAwsServiceCatalogConstraintRolePrepPause(),
-				Config: testAccAwsServiceCatalogConstraintTemplate(salt),
+				Config:    testAccAwsServiceCatalogConstraintTemplate(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraint(resourceName, &dco),
 					resource.TestCheckResourceAttrSet(resourceName, "portfolio_id"),
