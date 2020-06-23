@@ -103,13 +103,14 @@ resource "aws_servicecatalog_constraint_launch" "test_b_local_role_name" {
 
 func testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt string) string {
 	return composeConfig(
-		testAccAwsServiceCatalogConstraintLaunchConfigRole(salt),
-		testAccAwsServiceCatalogConstraintLaunchConfigPortfolios(salt),
-		testAccAwsServiceCatalogConstraintLaunchConfigProduct(salt),
-		testAccAwsServiceCatalogConstraintLaunchConfigPortfolioProductAssociations())
+		testAccAwsServiceCatalogConstraintLaunchConfig_role(salt),
+		testAccAwsServiceCatalogConstraintLaunchConfig_portfolios(salt),
+		testAccAwsServiceCatalogConstraintLaunchConfig_product(salt),
+		testAccAwsServiceCatalogConstraintLaunchConfig_portfolioProductAssociations(),
+	)
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfigRole(salt string) string {
+func testAccAwsServiceCatalogConstraintLaunchConfig_role(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_iam_role" "test" {
   name = "tfm-test-%[1]s"
@@ -136,7 +137,7 @@ EOF
 `, salt)
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfigPortfolios(salt string) string {
+func testAccAwsServiceCatalogConstraintLaunchConfig_portfolios(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_servicecatalog_portfolio" "test_a" {
   name          = "tfm-test-%[1]s-A"
@@ -151,7 +152,7 @@ resource "aws_servicecatalog_portfolio" "test_b" {
 `, salt)
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfigProduct(salt string) string {
+func testAccAwsServiceCatalogConstraintLaunchConfig_product(salt string) string {
 	return fmt.Sprintf(`
 data "aws_region" "current" { }
 
@@ -198,7 +199,7 @@ resource "aws_servicecatalog_product" "test" {
 }`, salt)
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfigPortfolioProductAssociations() string {
+func testAccAwsServiceCatalogConstraintLaunchConfig_portfolioProductAssociations() string {
 	return `
 resource "aws_servicecatalog_portfolio_product_association" "test_a" {
     portfolio_id = aws_servicecatalog_portfolio.test_a.id
