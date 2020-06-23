@@ -81,8 +81,36 @@ func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.Descr
 	}
 }
 
+func testAccAwsServiceCatalogConstraintLaunchConfig(salt string) string {
+	return composeConfig(
+		testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt),
+		fmt.Sprintf(`
+resource "aws_servicecatalog_constraint_launch" "test_a_role_arn" {
+  description = "description"
+  role_arn = aws_iam_role.test.arn
+  portfolio_id = aws_servicecatalog_portfolio.test_a.id
+  product_id = aws_servicecatalog_product.test.id
+}
+resource "aws_servicecatalog_constraint_launch" "test_b_local_role_name" {
+  description = "description"
+  local_role_name = "testpath/tfm-test-%[1]s"
+  portfolio_id = aws_servicecatalog_portfolio.test_b.id
+  product_id = aws_servicecatalog_product.test.id
+}
+`,
+			salt))
+}
+
 func testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt string) string {
-	role := fmt.Sprintf(`
+	return composeConfig(
+		testAccAwsServiceCatalogConstraintLaunchConfigRole(salt),
+		testAccAwsServiceCatalogConstraintLaunchConfigPortfolios(salt),
+		testAccAwsServiceCatalogConstraintLaunchConfigProduct(salt),
+		testAccAwsServiceCatalogConstraintLaunchConfigPortfolioProductAssociations())
+}
+
+func testAccAwsServiceCatalogConstraintLaunchConfigRole(salt string) string {
+	return fmt.Sprintf(`
 resource "aws_iam_role" "test" {
   name = "tfm-test-%[1]s"
   assume_role_policy = <<EOF
@@ -106,7 +134,10 @@ EOF
   max_session_duration = 3600
 }
 `, salt)
-	portfolios := fmt.Sprintf(`
+}
+
+func testAccAwsServiceCatalogConstraintLaunchConfigPortfolios(salt string) string {
+	return fmt.Sprintf(`
 resource "aws_servicecatalog_portfolio" "test_a" {
   name          = "tfm-test-%[1]s-A"
   description   = "test-2"
@@ -118,7 +149,10 @@ resource "aws_servicecatalog_portfolio" "test_b" {
   provider_name = "test-3"
 }
 `, salt)
-	product := fmt.Sprintf(`
+}
+
+func testAccAwsServiceCatalogConstraintLaunchConfigProduct(salt string) string {
+	return fmt.Sprintf(`
 data "aws_region" "current" { }
 
 resource "aws_s3_bucket" "test" {
@@ -162,7 +196,10 @@ resource "aws_servicecatalog_product" "test" {
     }
   }
 }`, salt)
-	assocs := `
+}
+
+func testAccAwsServiceCatalogConstraintLaunchConfigPortfolioProductAssociations() string {
+	return `
 resource "aws_servicecatalog_portfolio_product_association" "test_a" {
     portfolio_id = aws_servicecatalog_portfolio.test_a.id
     product_id = aws_servicecatalog_product.test.id
@@ -172,27 +209,6 @@ resource "aws_servicecatalog_portfolio_product_association" "test_b" {
     product_id = aws_servicecatalog_product.test.id
 }
 `
-	return role + portfolios + product + assocs
-}
-
-func testAccAwsServiceCatalogConstraintLaunchConfig(salt string) string {
-	return composeConfig(
-		testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt),
-		fmt.Sprintf(`
-resource "aws_servicecatalog_constraint_launch" "test_a_role_arn" {
-  description = "description"
-  role_arn = aws_iam_role.test.arn
-  portfolio_id = aws_servicecatalog_portfolio.test_a.id
-  product_id = aws_servicecatalog_product.test.id
-}
-resource "aws_servicecatalog_constraint_launch" "test_b_local_role_name" {
-  description = "description"
-  local_role_name = "testpath/tfm-test-%[1]s"
-  portfolio_id = aws_servicecatalog_portfolio.test_b.id
-  product_id = aws_servicecatalog_product.test.id
-}
-`,
-			salt))
 }
 
 func testAccCheckServiceCatalogConstraintLaunchDestroy(s *terraform.State) error {
