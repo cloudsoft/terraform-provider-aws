@@ -192,7 +192,7 @@ resource "aws_servicecatalog_constraint_launch" "test_b_local_role_name" {
   product_id = aws_servicecatalog_product.test.id
 }
 `,
-		salt))
+			salt))
 }
 
 func testAccCheckServiceCatalogConstraintLaunchDestroy(s *terraform.State) error {
