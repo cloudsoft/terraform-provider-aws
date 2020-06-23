@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func TestAccAwsServiceCatalogConstraint_Basic(t *testing.T) {
+func TestAccAWSServiceCatalogConstraint_Basic(t *testing.T) {
 	resourceName := "aws_servicecatalog_constraint.test"
 	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
 	var dco servicecatalog.DescribeConstraintOutput
@@ -21,11 +21,11 @@ func TestAccAwsServiceCatalogConstraint_Basic(t *testing.T) {
 		CheckDestroy: testAccCheckServiceCatalogConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAwsServiceCatalogConstraintConfigRequirements(salt),
+				Config: testAccAWSServiceCatalogConstraintConfigRequirements(salt),
 			},
 			{
-				PreConfig: testAccAwsServiceCatalogConstraintRolePrepPause(),
-				Config:    testAccAwsServiceCatalogConstraintConfig(salt),
+				PreConfig: testAccAWSServiceCatalogConstraintRolePrepPause(),
+				Config:    testAccAWSServiceCatalogConstraintConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraint(resourceName, &dco),
 					resource.TestCheckResourceAttrSet(resourceName, "portfolio_id"),
@@ -44,7 +44,7 @@ func TestAccAwsServiceCatalogConstraint_Basic(t *testing.T) {
 	})
 }
 
-func testAccAwsServiceCatalogConstraintRolePrepPause() func() {
+func testAccAWSServiceCatalogConstraintRolePrepPause() func() {
 	return func() {
 		time.Sleep(11 * time.Second)
 	}
@@ -72,9 +72,9 @@ func testAccCheckConstraint(resourceName string, dco *servicecatalog.DescribeCon
 	}
 }
 
-func testAccAwsServiceCatalogConstraintConfig(salt string) string {
+func testAccAWSServiceCatalogConstraintConfig(salt string) string {
 	return composeConfig(
-		testAccAwsServiceCatalogConstraintConfigRequirements(salt),
+		testAccAWSServiceCatalogConstraintConfigRequirements(salt),
 		`
 resource "aws_servicecatalog_constraint" "test" {
   description = "description"
@@ -90,16 +90,16 @@ EOF
 `)
 }
 
-func testAccAwsServiceCatalogConstraintConfigRequirements(salt string) string {
+func testAccAWSServiceCatalogConstraintConfigRequirements(salt string) string {
 	return composeConfig(
-		testAccAwsServiceCatalogConstraintConfig_role(salt),
-		testAccAwsServiceCatalogConstraintConfig_portfolio(salt),
-		testAccAwsServiceCatalogConstraintConfig_product(salt),
-		testAccAwsServiceCatalogConstraintConfig_portfolioProductAssociation(),
+		testAccAWSServiceCatalogConstraintConfig_role(salt),
+		testAccAWSServiceCatalogConstraintConfig_portfolio(salt),
+		testAccAWSServiceCatalogConstraintConfig_product(salt),
+		testAccAWSServiceCatalogConstraintConfig_portfolioProductAssociation(),
 	)
 }
 
-func testAccAwsServiceCatalogConstraintConfig_portfolioProductAssociation() string {
+func testAccAWSServiceCatalogConstraintConfig_portfolioProductAssociation() string {
 	return `
 resource "aws_servicecatalog_portfolio_product_association" "test" {
     portfolio_id = aws_servicecatalog_portfolio.test.id
@@ -107,7 +107,7 @@ resource "aws_servicecatalog_portfolio_product_association" "test" {
 }`
 }
 
-func testAccAwsServiceCatalogConstraintConfig_product(salt string) string {
+func testAccAWSServiceCatalogConstraintConfig_product(salt string) string {
 	return fmt.Sprintf(`
 data "aws_region" "current" { }
 
@@ -154,7 +154,7 @@ resource "aws_servicecatalog_product" "test" {
 }`, salt)
 }
 
-func testAccAwsServiceCatalogConstraintConfig_portfolio(salt string) string {
+func testAccAWSServiceCatalogConstraintConfig_portfolio(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_servicecatalog_portfolio" "test" {
   name          = %[1]q
@@ -164,7 +164,7 @@ resource "aws_servicecatalog_portfolio" "test" {
 `, salt)
 }
 
-func testAccAwsServiceCatalogConstraintConfig_role(salt string) string {
+func testAccAWSServiceCatalogConstraintConfig_role(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_iam_role" "test" {
   name = %[1]q
