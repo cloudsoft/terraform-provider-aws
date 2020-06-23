@@ -21,11 +21,11 @@ func TestAccAwsServiceCatalogConstraint_Basic(t *testing.T) {
 		CheckDestroy: testAccCheckServiceCatalogConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAwsServiceCatalogConstraintRequirementsTemplate(salt),
+				Config: testAccAwsServiceCatalogConstraintConfigRequirements(salt),
 			},
 			{
 				PreConfig: testAccAwsServiceCatalogConstraintRolePrepPause(),
-				Config:    testAccAwsServiceCatalogConstraintTemplate(salt),
+				Config:    testAccAwsServiceCatalogConstraintConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraint(resourceName, &dco),
 					resource.TestCheckResourceAttrSet(resourceName, "portfolio_id"),
@@ -72,39 +72,43 @@ func testAccCheckConstraint(resourceName string, dco *servicecatalog.DescribeCon
 	}
 }
 
-func testAccAwsServiceCatalogConstraintRequirementsTemplate(salt string) string {
-	role := fmt.Sprintf(`
-resource "aws_iam_role" "test" {
-  name = %[1]q
-  assume_role_policy = <<EOF
+func testAccAwsServiceCatalogConstraintConfig(salt string) string {
+	return composeConfig(
+		testAccAwsServiceCatalogConstraintConfigRequirements(salt),
+		`
+resource "aws_servicecatalog_constraint" "test" {
+  description = "description"
+  parameters = <<EOF
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "",
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "servicecatalog.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
+  "RoleArn" : "${aws_iam_role.test.arn}"
 }
 EOF
-  description = %[1]q
-  path = "/testpath/"
-  force_detach_policies = false
-  max_session_duration = 3600
+  portfolio_id = aws_servicecatalog_portfolio.test.id
+  product_id = aws_servicecatalog_product.test.id
+  type = "LAUNCH"
 }
-`, salt)
-	portfolio := fmt.Sprintf(`
-resource "aws_servicecatalog_portfolio" "test" {
-  name          = %[1]q
-  description   = "test-2"
-  provider_name = "test-3"
+`)
 }
-`, salt)
-	product := fmt.Sprintf(`
+
+func testAccAwsServiceCatalogConstraintConfigRequirements(salt string) string {
+	return composeConfig(
+		testAccAwsServiceCatalogConstraintConfigRole(salt),
+		testAccAwsServiceCatalogConstraintConfigPortfolio(salt),
+		testAccAwsServiceCatalogConstraintConfigProduct(salt),
+		testAccAwsServiceCatalogConstraintConfigPortfolioProductAssociation(),
+	)
+}
+
+func testAccAwsServiceCatalogConstraintConfigPortfolioProductAssociation() string {
+	return `
+resource "aws_servicecatalog_portfolio_product_association" "test" {
+    portfolio_id = aws_servicecatalog_portfolio.test.id
+    product_id = aws_servicecatalog_product.test.id
+}`
+}
+
+func testAccAwsServiceCatalogConstraintConfigProduct(salt string) string {
+	return fmt.Sprintf(`
 data "aws_region" "current" { }
 
 resource "aws_s3_bucket" "test" {
@@ -148,29 +152,43 @@ resource "aws_servicecatalog_product" "test" {
     }
   }
 }`, salt)
-	assoc := `
-resource "aws_servicecatalog_portfolio_product_association" "test" {
-    portfolio_id = aws_servicecatalog_portfolio.test.id
-    product_id = aws_servicecatalog_product.test.id
-}`
-	return role + portfolio + product + assoc
 }
 
-func testAccAwsServiceCatalogConstraintTemplate(salt string) string {
-	return composeConfig(testAccAwsServiceCatalogConstraintRequirementsTemplate(salt),
-		`
-resource "aws_servicecatalog_constraint" "test" {
-  description = "description"
-  parameters = <<EOF
+func testAccAwsServiceCatalogConstraintConfigPortfolio(salt string) string {
+	return fmt.Sprintf(`
+resource "aws_servicecatalog_portfolio" "test" {
+  name          = %[1]q
+  description   = "test-2"
+  provider_name = "test-3"
+}
+`, salt)
+}
+
+func testAccAwsServiceCatalogConstraintConfigRole(salt string) string {
+	return fmt.Sprintf(`
+resource "aws_iam_role" "test" {
+  name = %[1]q
+  assume_role_policy = <<EOF
 {
-  "RoleArn" : "${aws_iam_role.test.arn}"
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "servicecatalog.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
 }
 EOF
-  portfolio_id = aws_servicecatalog_portfolio.test.id
-  product_id = aws_servicecatalog_product.test.id
-  type = "LAUNCH"
+  description = %[1]q
+  path = "/testpath/"
+  force_detach_policies = false
+  max_session_duration = 3600
 }
-`)
+`, salt)
 }
 
 func testAccCheckServiceCatalogConstraintDestroy(s *terraform.State) error {
