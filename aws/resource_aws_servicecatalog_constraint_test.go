@@ -157,8 +157,8 @@ resource "aws_servicecatalog_portfolio_product_association" "test" {
 }
 
 func testAccAwsServiceCatalogConstraintTemplate(salt string) string {
-	requirements := testAccAwsServiceCatalogConstraintRequirementsTemplate(salt)
-	constraint := `
+	return composeConfig(testAccAwsServiceCatalogConstraintRequirementsTemplate(salt),
+		`
 resource "aws_servicecatalog_constraint" "test" {
   description = "description"
   parameters = <<EOF
@@ -170,9 +170,7 @@ EOF
   product_id = aws_servicecatalog_product.test.id
   type = "LAUNCH"
 }
-`
-	template := requirements + constraint
-	return template
+`)
 }
 
 func testAccCheckServiceCatalogConstraintDestroy(s *terraform.State) error {

@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	"testing"
-	"time"
 )
 
 func TestAccAwsServiceCatalogConstraintLaunch_Basic(t *testing.T) {
@@ -27,7 +26,6 @@ func TestAccAwsServiceCatalogConstraintLaunch_Basic(t *testing.T) {
 				Config: testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt),
 			},
 			{
-				//PreConfig: testAccAwsServiceCatalogConstraintLaunchRolePrepPause(),
 				Config: testAccAwsServiceCatalogConstraintLaunchConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraintLaunch(roleArnResourceName, &roleArnDco),
@@ -59,12 +57,6 @@ func TestAccAwsServiceCatalogConstraintLaunch_Basic(t *testing.T) {
 			},
 		},
 	})
-}
-
-func testAccAwsServiceCatalogConstraintLaunchRolePrepPause() func() {
-	return func() {
-		time.Sleep(11 * time.Second)
-	}
 }
 
 func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
@@ -184,26 +176,23 @@ resource "aws_servicecatalog_portfolio_product_association" "test_b" {
 }
 
 func testAccAwsServiceCatalogConstraintLaunchConfig(salt string) string {
-	requirements := testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt)
-	constraint := fmt.Sprintf(`
+	return composeConfig(
+		testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt),
+		fmt.Sprintf(`
 resource "aws_servicecatalog_constraint_launch" "test_a_role_arn" {
   description = "description"
   role_arn = aws_iam_role.test.arn
   portfolio_id = aws_servicecatalog_portfolio.test_a.id
   product_id = aws_servicecatalog_product.test.id
-  depends_on = [aws_servicecatalog_portfolio_product_association.test_a]
 }
 resource "aws_servicecatalog_constraint_launch" "test_b_local_role_name" {
   description = "description"
   local_role_name = "testpath/tfm-test-%[1]s"
   portfolio_id = aws_servicecatalog_portfolio.test_b.id
   product_id = aws_servicecatalog_product.test.id
-  depends_on = [aws_servicecatalog_portfolio_product_association.test_b]
 }
 `,
-		salt)
-	template := requirements + constraint
-	return template
+		salt))
 }
 
 func testAccCheckServiceCatalogConstraintLaunchDestroy(s *terraform.State) error {
