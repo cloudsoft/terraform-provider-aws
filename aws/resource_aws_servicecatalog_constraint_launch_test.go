@@ -92,7 +92,7 @@ func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.Descr
 func testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt string) string {
 	role := fmt.Sprintf(`
 resource "aws_iam_role" "test" {
-  name = %[1]q
+  name = "tfm-test-%[1]s"
   assume_role_policy = <<EOF
 {
   "Version": "2012-10-17",
@@ -116,12 +116,12 @@ EOF
 `, salt)
 	portfolios := fmt.Sprintf(`
 resource "aws_servicecatalog_portfolio" "test_a" {
-  name          = "%[1]s-A"
+  name          = "tfm-test-%[1]s-A"
   description   = "test-2"
   provider_name = "test-3"
 }
 resource "aws_servicecatalog_portfolio" "test_b" {
-  name          = "%[1]s-B"
+  name          = "tfm-test-%[1]s-B"
   description   = "test-2"
   provider_name = "test-3"
 }
@@ -130,7 +130,7 @@ resource "aws_servicecatalog_portfolio" "test_b" {
 data "aws_region" "current" { }
 
 resource "aws_s3_bucket" "test" {
-  bucket        = "terraform-test-%[1]s"
+  bucket        = "tfm-test-%[1]s"
   region        = data.aws_region.current.name
   acl           = "private"
   force_destroy = true
@@ -155,7 +155,7 @@ EOF
 resource "aws_servicecatalog_product" "test" {
   description         = "arbitrary product description"
   distributor         = "arbitrary distributor"
-  name                = %[1]q
+  name                = "tfm-test-%[1]s"
   owner               = "arbitrary owner"
   product_type        = "CLOUD_FORMATION_TEMPLATE"
   support_description = "arbitrary support description"
@@ -164,7 +164,7 @@ resource "aws_servicecatalog_product" "test" {
 
   provisioning_artifact {
     description = "arbitrary description"
-    name        = %[1]q
+    name        = "tfm-test-%[1]s"
     info = {
       LoadTemplateFromURL = "https://s3.amazonaws.com/${aws_s3_bucket.test.id}/${aws_s3_bucket_object.test.key}"
     }
