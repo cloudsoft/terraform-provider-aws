@@ -44,7 +44,7 @@ func TestAccAwsServiceCatalogConstraintLaunch_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr(localRoleNameResourceName, "description", "description"),
 					resource.TestCheckResourceAttr(localRoleNameResourceName, "type", "LAUNCH"),
 					resource.TestCheckResourceAttrSet(localRoleNameResourceName, "local_role_name"),
-					resource.TestCheckNoResourceAttr(roleArnResourceName, "role_arn"),
+					resource.TestCheckNoResourceAttr(localRoleNameResourceName, "role_arn"),
 				),
 			},
 			{
