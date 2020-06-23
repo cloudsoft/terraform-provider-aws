@@ -6,12 +6,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	"testing"
 	"time"
 )
 
-func TestAccAWSServiceCatalogConstraint_Basic(t *testing.T) {
+func TestAccAWSServiceCatalogConstraint_basic(t *testing.T) {
 	resourceName := "aws_servicecatalog_constraint.test"
 	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
 	var dco servicecatalog.DescribeConstraintOutput
@@ -39,6 +40,31 @@ func TestAccAWSServiceCatalogConstraint_Basic(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccAWSServiceCatalogConstraint_disappears(t *testing.T) {
+	resourceName := "aws_servicecatalog_constraint.test"
+	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
+	var describeConstraintOutput servicecatalog.DescribeConstraintOutput
+	var providers []*schema.Provider
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {testAccPreCheck(t)},
+		ProviderFactories: testAccProviderFactories(&providers),
+		CheckDestroy: testAccCheckServiceCatalogConstraintDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSServiceCatalogConstraintConfigRequirements(salt),
+			},
+			{
+				Config: testAccAWSServiceCatalogConstraintConfig(salt),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckServiceCatalogConstraintExists(resourceName, &describeConstraintOutput),
+					testAccCheckServiceCatalogConstraintDisappears(&describeConstraintOutput),
+				),
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})
@@ -205,3 +231,81 @@ func testAccCheckServiceCatalogConstraintDestroy(s *terraform.State) error {
 	}
 	return nil
 }
+
+func testAccCheckServiceCatalogConstraintExists(resourceName string, describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("not found: %s", resourceName)
+		}
+		if rs.Primary.ID == "" {
+			return fmt.Errorf("no ID is set")
+		}
+		input := servicecatalog.DescribeConstraintInput{Id: aws.String(rs.Primary.ID)}
+		conn := testAccProvider.Meta().(*AWSClient).scconn
+		constraint, err := conn.DescribeConstraint(&input)
+		if err != nil {
+			return err
+		}
+		*describeConstraintOutput = *constraint
+		return nil
+	}
+}
+
+func testAccCheckServiceCatalogConstraintDisappears(describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		conn := testAccProvider.Meta().(*AWSClient).scconn
+		constraintId := describeConstraintOutput.ConstraintDetail.ConstraintId
+		input := servicecatalog.DeleteConstraintInput{Id: constraintId}
+		err := resource.Retry(1 * time.Minute, func() *resource.RetryError {
+			fmt.Printf("Attempting to delete constraint %s\n", *constraintId)
+			_, err := conn.DeleteConstraint(&input)
+			if err != nil {
+				fmt.Println("error: " + err.Error())
+				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException, "") ||
+					isAWSErr(err, servicecatalog.ErrCodeInvalidParametersException, "") {
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("could not delete constraint: #{err}")
+		}
+		fmt.Println("Waiting....")
+		if err := waitForServiceCatalogConstraintDeletion(conn,
+			aws.StringValue(constraintId));
+			err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func waitForServiceCatalogConstraintDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
+	input := servicecatalog.DescribeConstraintInput{Id: aws.String(id)}
+	stateConf := resource.StateChangeConf{
+		Pending: []string{"AVAILABLE"},
+		Target: []string{""},
+		Timeout: 5 * time.Minute,
+		PollInterval: 20 * time.Second,
+		Refresh: func() (interface{},string, error) {
+			fmt.Println("Still waiting...")
+			resp, err := conn.DescribeConstraint(&input)
+			if err != nil {
+				fmt.Println("error describing: " + err.Error())
+				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException,
+					fmt.Sprintf("Constraint %s not found.", id)) {
+					return 42, "", nil
+				}
+				return 42, "", err
+			}
+			return resp, aws.StringValue(resp.Status), nil
+		},
+	}
+	_, err := stateConf.WaitForState()
+	return err
+}
+
+
