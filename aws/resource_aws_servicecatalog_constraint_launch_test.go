@@ -186,16 +186,16 @@ resource "aws_servicecatalog_portfolio_product_association" "test_b" {
 func testAccAwsServiceCatalogConstraintLaunchConfig(salt string) string {
 	requirements := testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt)
 	constraint := fmt.Sprintf(`
-resource "aws_servicecatalog_constraint_launch" "test_role_arn" {
+resource "aws_servicecatalog_constraint_launch" "test_a_role_arn" {
   description = "description"
   role_arn = aws_iam_role.test.arn
   portfolio_id = aws_servicecatalog_portfolio.test_a.id
   product_id = aws_servicecatalog_product.test.id
   depends_on = [aws_servicecatalog_portfolio_product_association.test_a]
 }
-resource "aws_servicecatalog_constraint_launch" "test_local_role_name" {
+resource "aws_servicecatalog_constraint_launch" "test_b_local_role_name" {
   description = "description"
-  local_role_name = %[1]q
+  local_role_name = "testpath/tfm-test-%[1]s"
   portfolio_id = aws_servicecatalog_portfolio.test_b.id
   product_id = aws_servicecatalog_product.test.id
   depends_on = [aws_servicecatalog_portfolio_product_association.test_b]
