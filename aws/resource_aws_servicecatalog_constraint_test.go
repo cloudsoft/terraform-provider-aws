@@ -92,14 +92,14 @@ EOF
 
 func testAccAwsServiceCatalogConstraintConfigRequirements(salt string) string {
 	return composeConfig(
-		testAccAwsServiceCatalogConstraintConfigRole(salt),
-		testAccAwsServiceCatalogConstraintConfigPortfolio(salt),
-		testAccAwsServiceCatalogConstraintConfigProduct(salt),
-		testAccAwsServiceCatalogConstraintConfigPortfolioProductAssociation(),
+		testAccAwsServiceCatalogConstraintConfig_role(salt),
+		testAccAwsServiceCatalogConstraintConfig_portfolio(salt),
+		testAccAwsServiceCatalogConstraintConfig_product(salt),
+		testAccAwsServiceCatalogConstraintConfig_portfolioProductAssociation(),
 	)
 }
 
-func testAccAwsServiceCatalogConstraintConfigPortfolioProductAssociation() string {
+func testAccAwsServiceCatalogConstraintConfig_portfolioProductAssociation() string {
 	return `
 resource "aws_servicecatalog_portfolio_product_association" "test" {
     portfolio_id = aws_servicecatalog_portfolio.test.id
@@ -107,7 +107,7 @@ resource "aws_servicecatalog_portfolio_product_association" "test" {
 }`
 }
 
-func testAccAwsServiceCatalogConstraintConfigProduct(salt string) string {
+func testAccAwsServiceCatalogConstraintConfig_product(salt string) string {
 	return fmt.Sprintf(`
 data "aws_region" "current" { }
 
@@ -154,7 +154,7 @@ resource "aws_servicecatalog_product" "test" {
 }`, salt)
 }
 
-func testAccAwsServiceCatalogConstraintConfigPortfolio(salt string) string {
+func testAccAwsServiceCatalogConstraintConfig_portfolio(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_servicecatalog_portfolio" "test" {
   name          = %[1]q
@@ -164,7 +164,7 @@ resource "aws_servicecatalog_portfolio" "test" {
 `, salt)
 }
 
-func testAccAwsServiceCatalogConstraintConfigRole(salt string) string {
+func testAccAwsServiceCatalogConstraintConfig_role(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_iam_role" "test" {
   name = %[1]q
