@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestAccAwsServiceCatalogConstraintLaunch_Basic(t *testing.T) {
+func TestAccAWSServiceCatalogConstraintLaunch_Basic(t *testing.T) {
 	resourceName := "aws_servicecatalog_launch_role_constraint.test"
 	roleArnResourceName := resourceName + "_a_role_arn"
 	localRoleNameResourceName := resourceName + "_b_local_role_name"
@@ -23,10 +23,10 @@ func TestAccAwsServiceCatalogConstraintLaunch_Basic(t *testing.T) {
 		CheckDestroy: testAccCheckServiceCatalogConstraintLaunchDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt),
+				Config: testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
 			},
 			{
-				Config: testAccAwsServiceCatalogConstraintLaunchConfig(salt),
+				Config: testAccAWSServiceCatalogConstraintLaunchConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraintLaunch(roleArnResourceName, &roleArnDco),
 					resource.TestCheckResourceAttrSet(roleArnResourceName, "portfolio_id"),
@@ -81,9 +81,9 @@ func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.Descr
 	}
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfig(salt string) string {
+func testAccAWSServiceCatalogConstraintLaunchConfig(salt string) string {
 	return composeConfig(
-		testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt),
+		testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
 		fmt.Sprintf(`
 resource "aws_servicecatalog_launch_role_constraint" "test_a_role_arn" {
   description = "description"
@@ -101,16 +101,16 @@ resource "aws_servicecatalog_launch_role_constraint" "test_b_local_role_name" {
 			salt))
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt string) string {
+func testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt string) string {
 	return composeConfig(
-		testAccAwsServiceCatalogConstraintLaunchConfig_role(salt),
-		testAccAwsServiceCatalogConstraintLaunchConfig_portfolios(salt),
-		testAccAwsServiceCatalogConstraintLaunchConfig_product(salt),
-		testAccAwsServiceCatalogConstraintLaunchConfig_portfolioProductAssociations(),
+		testAccAWSServiceCatalogConstraintLaunchConfig_role(salt),
+		testAccAWSServiceCatalogConstraintLaunchConfig_portfolios(salt),
+		testAccAWSServiceCatalogConstraintLaunchConfig_product(salt),
+		testAccAWSServiceCatalogConstraintLaunchConfig_portfolioProductAssociations(),
 	)
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfig_role(salt string) string {
+func testAccAWSServiceCatalogConstraintLaunchConfig_role(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_iam_role" "test" {
   name = "tfm-test-%[1]s"
@@ -137,7 +137,7 @@ EOF
 `, salt)
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfig_portfolios(salt string) string {
+func testAccAWSServiceCatalogConstraintLaunchConfig_portfolios(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_servicecatalog_portfolio" "test_a" {
   name          = "tfm-test-%[1]s-A"
@@ -152,7 +152,7 @@ resource "aws_servicecatalog_portfolio" "test_b" {
 `, salt)
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfig_product(salt string) string {
+func testAccAWSServiceCatalogConstraintLaunchConfig_product(salt string) string {
 	return fmt.Sprintf(`
 data "aws_region" "current" { }
 
@@ -199,7 +199,7 @@ resource "aws_servicecatalog_product" "test" {
 }`, salt)
 }
 
-func testAccAwsServiceCatalogConstraintLaunchConfig_portfolioProductAssociations() string {
+func testAccAWSServiceCatalogConstraintLaunchConfig_portfolioProductAssociations() string {
 	return `
 resource "aws_servicecatalog_portfolio_product_association" "test_a" {
     portfolio_id = aws_servicecatalog_portfolio.test_a.id
