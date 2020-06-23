@@ -184,7 +184,7 @@ resource "aws_servicecatalog_portfolio_product_association" "test_b" {
 }
 
 func testAccAwsServiceCatalogConstraintLaunchConfig(salt string) string {
-	requirements := testAccAwsServiceCatalogConstraintRequirementsTemplate(salt)
+	requirements := testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt)
 	constraint := fmt.Sprintf(`
 resource "aws_servicecatalog_constraint_launch" "test_role_arn" {
   description = "description"
