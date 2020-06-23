@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestAccAWSServiceCatalogConstraintLaunch_Basic(t *testing.T) {
+func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 	resourceName := "aws_servicecatalog_launch_role_constraint.test"
 	roleArnResourceName := resourceName + "_a_role_arn"
 	localRoleNameResourceName := resourceName + "_b_local_role_name"
