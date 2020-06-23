@@ -11,7 +11,7 @@ import (
 )
 
 func TestAccAwsServiceCatalogConstraintLaunch_Basic(t *testing.T) {
-	resourceName := "aws_servicecatalog_constraint_launch.test"
+	resourceName := "aws_servicecatalog_launch_role_constraint.test"
 	roleArnResourceName := resourceName + "_a_role_arn"
 	localRoleNameResourceName := resourceName + "_b_local_role_name"
 	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
@@ -85,13 +85,13 @@ func testAccAwsServiceCatalogConstraintLaunchConfig(salt string) string {
 	return composeConfig(
 		testAccAwsServiceCatalogConstraintLaunchConfigRequirements(salt),
 		fmt.Sprintf(`
-resource "aws_servicecatalog_constraint_launch" "test_a_role_arn" {
+resource "aws_servicecatalog_launch_role_constraint" "test_a_role_arn" {
   description = "description"
   role_arn = aws_iam_role.test.arn
   portfolio_id = aws_servicecatalog_portfolio.test_a.id
   product_id = aws_servicecatalog_product.test.id
 }
-resource "aws_servicecatalog_constraint_launch" "test_b_local_role_name" {
+resource "aws_servicecatalog_launch_role_constraint" "test_b_local_role_name" {
   description = "description"
   local_role_name = "testpath/tfm-test-%[1]s"
   portfolio_id = aws_servicecatalog_portfolio.test_b.id
