@@ -6,8 +6,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	"testing"
+	"time"
 )
 
 func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
@@ -59,6 +61,31 @@ func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 	})
 }
 
+func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
+	resourceName := "aws_servicecatalog_launch_role_constraint.test"
+	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
+	var describeConstraintOutput servicecatalog.DescribeConstraintOutput
+	var providers []*schema.Provider
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {testAccPreCheck(t)},
+		ProviderFactories: testAccProviderFactories(&providers),
+		CheckDestroy: testAccCheckServiceCatalogConstraintLaunchDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
+			},
+			{
+				Config: testAccAWSServiceCatalogConstraintLaunchConfigSingle(salt),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckServiceCatalogConstraintLaunchExists(resourceName, &describeConstraintOutput),
+					testAccCheckServiceCatalogConstraintLaunchDisappears(&describeConstraintOutput),
+				),
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -99,6 +126,19 @@ resource "aws_servicecatalog_launch_role_constraint" "test_b_local_role_name" {
 }
 `,
 			salt))
+}
+
+func testAccAWSServiceCatalogConstraintLaunchConfigSingle(salt string) string {
+	return composeConfig(
+		testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
+		`
+resource "aws_servicecatalog_launch_role_constraint" "test" {
+  description = "description"
+  role_arn = aws_iam_role.test.arn
+  portfolio_id = aws_servicecatalog_portfolio.test_a.id
+  product_id = aws_servicecatalog_product.test.id
+}
+`)
 }
 
 func testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt string) string {
@@ -215,14 +255,101 @@ resource "aws_servicecatalog_portfolio_product_association" "test_b" {
 func testAccCheckServiceCatalogConstraintLaunchDestroy(s *terraform.State) error {
 	conn := testAccProvider.Meta().(*AWSClient).scconn
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "aws_servicecatalog_constraint" {
+		if rs.Type != "aws_servicecatalog_launch_role_constraint" {
 			continue // not our monkey
 		}
 		input := servicecatalog.DescribeConstraintInput{Id: aws.String(rs.Primary.ID)}
 		_, err := conn.DescribeConstraint(&input)
 		if err == nil {
-			return fmt.Errorf("constraint still exists")
+			return fmt.Errorf("constraint still exists: %s", rs.Primary.ID)
 		}
 	}
 	return nil
+}
+
+func testAccCheckServiceCatalogConstraintLaunchExists(resourceName string, describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		fmt.Printf("launch constraint exists?: %s\n", resourceName)
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("not found: %s", resourceName)
+		}
+		if rs.Primary.ID == "" {
+			return fmt.Errorf("no ID is set")
+		}
+		fmt.Printf("... found in state: %s\n", rs.Primary.ID)
+		input := servicecatalog.DescribeConstraintInput{Id: aws.String(rs.Primary.ID)}
+		conn := testAccProvider.Meta().(*AWSClient).scconn
+		constraint, err := conn.DescribeConstraint(&input)
+		if err != nil {
+			fmt.Printf("... not found: %s\n", err.Error())
+			return err
+		}
+		fmt.Println("... found okay")
+		*describeConstraintOutput = *constraint
+		return nil
+	}
+}
+
+func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		fmt.Printf("launch constraint (%s) disappears: %s\n",
+			*describeConstraintOutput.Status,
+			*describeConstraintOutput.ConstraintDetail.ConstraintId)
+		conn := testAccProvider.Meta().(*AWSClient).scconn
+		constraintId := describeConstraintOutput.ConstraintDetail.ConstraintId
+		fmt.Printf("... deleting constaint: %s", *constraintId)
+		input := servicecatalog.DeleteConstraintInput{Id: constraintId}
+		err := resource.Retry(1 * time.Minute, func() *resource.RetryError {
+			fmt.Printf("Attempting to delete constraint %s\n", *constraintId)
+			_, err := conn.DeleteConstraint(&input)
+			if err != nil {
+				fmt.Println("error: " + err.Error())
+				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException, "") ||
+					isAWSErr(err, servicecatalog.ErrCodeInvalidParametersException, "") {
+					return resource.RetryableError(err)
+				}
+				return resource.NonRetryableError(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("could not delete launch role constraint: #{err}")
+		}
+		fmt.Println("Waiting....")
+		if err := waitForServiceCatalogConstraintLaunchDeletion(conn,
+			aws.StringValue(constraintId));
+			err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func waitForServiceCatalogConstraintLaunchDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
+	input := servicecatalog.DescribeConstraintInput{Id: aws.String(id)}
+	stateConf := resource.StateChangeConf{
+		Pending: []string{"AVAILABLE"},
+		Target: []string{""},
+		Timeout: 5 * time.Minute,
+		PollInterval: 20 * time.Second,
+		Refresh: func() (interface{},string, error) {
+			fmt.Println("Still waiting...")
+			resp, err := conn.DescribeConstraint(&input)
+			if err != nil {
+				fmt.Println("error describing: " + err.Error())
+				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException,
+					fmt.Sprintf("Constraint %s not found.", id)) {
+					fmt.Println("... but that's expected")
+					return 42, "", nil
+				}
+				fmt.Println("... and we're not happy about that")
+				return 42, "", err
+			}
+			fmt.Printf("... no error - %s\n", *resp.Status)
+			return resp, aws.StringValue(resp.Status), nil
+		},
+	}
+	_, err := stateConf.WaitForState()
+	return err
 }
