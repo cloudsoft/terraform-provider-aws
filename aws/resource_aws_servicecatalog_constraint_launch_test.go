@@ -269,7 +269,6 @@ func testAccCheckServiceCatalogConstraintLaunchDestroy(s *terraform.State) error
 
 func testAccCheckServiceCatalogConstraintLaunchExists(resourceName string, describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		fmt.Printf("launch constraint exists?: %s\n", resourceName)
 		rs, ok := s.RootModule().Resources[resourceName]
 		if !ok {
 			return fmt.Errorf("not found: %s", resourceName)
@@ -277,15 +276,12 @@ func testAccCheckServiceCatalogConstraintLaunchExists(resourceName string, descr
 		if rs.Primary.ID == "" {
 			return fmt.Errorf("no ID is set")
 		}
-		fmt.Printf("... found in state: %s\n", rs.Primary.ID)
 		input := servicecatalog.DescribeConstraintInput{Id: aws.String(rs.Primary.ID)}
 		conn := testAccProvider.Meta().(*AWSClient).scconn
 		constraint, err := conn.DescribeConstraint(&input)
 		if err != nil {
-			fmt.Printf("... not found: %s\n", err.Error())
 			return err
 		}
-		fmt.Println("... found okay")
 		*describeConstraintOutput = *constraint
 		return nil
 	}
@@ -293,18 +289,12 @@ func testAccCheckServiceCatalogConstraintLaunchExists(resourceName string, descr
 
 func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		fmt.Printf("launch constraint (%s) disappears: %s\n",
-			*describeConstraintOutput.Status,
-			*describeConstraintOutput.ConstraintDetail.ConstraintId)
 		conn := testAccProvider.Meta().(*AWSClient).scconn
 		constraintId := describeConstraintOutput.ConstraintDetail.ConstraintId
-		fmt.Printf("... deleting constaint: %s", *constraintId)
 		input := servicecatalog.DeleteConstraintInput{Id: constraintId}
 		err := resource.Retry(1 * time.Minute, func() *resource.RetryError {
-			fmt.Printf("Attempting to delete constraint %s\n", *constraintId)
 			_, err := conn.DeleteConstraint(&input)
 			if err != nil {
-				fmt.Println("error: " + err.Error())
 				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException, "") ||
 					isAWSErr(err, servicecatalog.ErrCodeInvalidParametersException, "") {
 					return resource.RetryableError(err)
@@ -316,7 +306,6 @@ func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutp
 		if err != nil {
 			return fmt.Errorf("could not delete launch role constraint: #{err}")
 		}
-		fmt.Println("Waiting....")
 		if err := waitForServiceCatalogConstraintLaunchDeletion(conn,
 			aws.StringValue(constraintId));
 			err != nil {
@@ -334,19 +323,14 @@ func waitForServiceCatalogConstraintLaunchDeletion(conn *servicecatalog.ServiceC
 		Timeout: 5 * time.Minute,
 		PollInterval: 20 * time.Second,
 		Refresh: func() (interface{},string, error) {
-			fmt.Println("Still waiting...")
 			resp, err := conn.DescribeConstraint(&input)
 			if err != nil {
-				fmt.Println("error describing: " + err.Error())
 				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException,
 					fmt.Sprintf("Constraint %s not found.", id)) {
-					fmt.Println("... but that's expected")
 					return 42, "", nil
 				}
-				fmt.Println("... and we're not happy about that")
 				return 42, "", err
 			}
-			fmt.Printf("... no error - %s\n", *resp.Status)
 			return resp, aws.StringValue(resp.Status), nil
 		},
 	}
