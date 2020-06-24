@@ -193,10 +193,13 @@ func resourceAwsServiceCatalogConstraintUpdateBase(d *schema.ResourceData, meta 
 
 func resourceAwsServiceCatalogConstraintDelete(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).scconn
-	input := servicecatalog.DeleteConstraintInput{Id: aws.String(d.Id())}
+	constraintId := d.Id()
+	fmt.Printf("Deleting constraint: %s\n", constraintId)
+	input := servicecatalog.DeleteConstraintInput{Id: aws.String(constraintId)}
 	_, err := conn.DeleteConstraint(&input)
 	if err != nil {
 		return fmt.Errorf("deleting Service Catalog Constraint '%s' failed: %s", *input.Id, err.Error())
 	}
+	fmt.Printf("Deleted constraint: %s\n", constraintId)
 	return nil
 }

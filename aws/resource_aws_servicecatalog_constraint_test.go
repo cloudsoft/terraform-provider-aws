@@ -307,5 +307,3 @@ func waitForServiceCatalogConstraintDeletion(conn *servicecatalog.ServiceCatalog
 	_, err := stateConf.WaitForState()
 	return err
 }
-
-
