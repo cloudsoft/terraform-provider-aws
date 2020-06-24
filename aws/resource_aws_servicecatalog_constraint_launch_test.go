@@ -95,11 +95,11 @@ func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.Descr
 		if rs.Primary.ID == "" {
 			return fmt.Errorf("no ID is set")
 		}
-		input := &servicecatalog.DescribeConstraintInput{
+		input := servicecatalog.DescribeConstraintInput{
 			Id: aws.String(rs.Primary.ID),
 		}
 		conn := testAccProvider.Meta().(*AWSClient).scconn
-		resp, err := conn.DescribeConstraint(input)
+		resp, err := conn.DescribeConstraint(&input)
 		if err != nil {
 			return err
 		}
