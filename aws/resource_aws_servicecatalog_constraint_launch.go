@@ -115,7 +115,7 @@ func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta 
 		return err
 	}
 	if constraint == nil {
-		return fmt.Errorf("constraint result missing")
+		return nil
 	}
 	var jsonDoc *string = constraint.ConstraintParameters
 	var bytes []byte = []byte(*jsonDoc)
