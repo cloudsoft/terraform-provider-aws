@@ -258,10 +258,8 @@ func testAccCheckServiceCatalogConstraintDisappears(describeConstraintOutput *se
 		constraintId := describeConstraintOutput.ConstraintDetail.ConstraintId
 		input := servicecatalog.DeleteConstraintInput{Id: constraintId}
 		err := resource.Retry(1 * time.Minute, func() *resource.RetryError {
-			fmt.Printf("Attempting to delete constraint %s\n", *constraintId)
 			_, err := conn.DeleteConstraint(&input)
 			if err != nil {
-				fmt.Println("error: " + err.Error())
 				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException, "") ||
 					isAWSErr(err, servicecatalog.ErrCodeInvalidParametersException, "") {
 					return resource.RetryableError(err)
@@ -273,7 +271,6 @@ func testAccCheckServiceCatalogConstraintDisappears(describeConstraintOutput *se
 		if err != nil {
 			return fmt.Errorf("could not delete constraint: #{err}")
 		}
-		fmt.Println("Waiting....")
 		if err := waitForServiceCatalogConstraintDeletion(conn,
 			aws.StringValue(constraintId));
 			err != nil {
@@ -291,10 +288,8 @@ func waitForServiceCatalogConstraintDeletion(conn *servicecatalog.ServiceCatalog
 		Timeout: 5 * time.Minute,
 		PollInterval: 20 * time.Second,
 		Refresh: func() (interface{},string, error) {
-			fmt.Println("Still waiting...")
 			resp, err := conn.DescribeConstraint(&input)
 			if err != nil {
-				fmt.Println("error describing: " + err.Error())
 				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException,
 					fmt.Sprintf("Constraint %s not found.", id)) {
 					return 42, "", nil
