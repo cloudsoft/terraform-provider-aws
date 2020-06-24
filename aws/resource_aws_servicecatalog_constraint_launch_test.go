@@ -69,9 +69,9 @@ func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
 	var describeConstraintOutputB servicecatalog.DescribeConstraintOutput
 	var providers []*schema.Provider
 	resource.Test(t, resource.TestCase{
-		PreCheck: func() {testAccPreCheck(t)},
+		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories(&providers),
-		CheckDestroy: testAccCheckServiceCatalogConstraintLaunchDestroy,
+		CheckDestroy:      testAccCheckServiceCatalogConstraintLaunchDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
@@ -283,7 +283,7 @@ func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutp
 		conn := testAccProvider.Meta().(*AWSClient).scconn
 		constraintId := describeConstraintOutput.ConstraintDetail.ConstraintId
 		input := servicecatalog.DeleteConstraintInput{Id: constraintId}
-		err := resource.Retry(1 * time.Minute, func() *resource.RetryError {
+		err := resource.Retry(1*time.Minute, func() *resource.RetryError {
 			_, err := conn.DeleteConstraint(&input)
 			if err != nil {
 				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException, "") ||
@@ -298,8 +298,7 @@ func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutp
 			return fmt.Errorf("could not delete launch role constraint: #{err}")
 		}
 		if err := waitForServiceCatalogConstraintLaunchDeletion(conn,
-			aws.StringValue(constraintId));
-			err != nil {
+			aws.StringValue(constraintId)); err != nil {
 			return err
 		}
 		return nil
@@ -309,11 +308,11 @@ func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutp
 func waitForServiceCatalogConstraintLaunchDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
 	input := servicecatalog.DescribeConstraintInput{Id: aws.String(id)}
 	stateConf := resource.StateChangeConf{
-		Pending: []string{"AVAILABLE"},
-		Target: []string{""},
-		Timeout: 5 * time.Minute,
+		Pending:      []string{"AVAILABLE"},
+		Target:       []string{""},
+		Timeout:      5 * time.Minute,
 		PollInterval: 20 * time.Second,
-		Refresh: func() (interface{},string, error) {
+		Refresh: func() (interface{}, string, error) {
 			resp, err := conn.DescribeConstraint(&input)
 			if err != nil {
 				if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException,
