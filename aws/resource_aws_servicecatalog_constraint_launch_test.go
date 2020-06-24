@@ -62,9 +62,11 @@ func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 }
 
 func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
-	resourceName := "aws_servicecatalog_launch_role_constraint.test"
+	resourceNameA := "aws_servicecatalog_launch_role_constraint.test_a_role_arn"
+	resourceNameB := "aws_servicecatalog_launch_role_constraint.test_b_local_role_name"
 	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
-	var describeConstraintOutput servicecatalog.DescribeConstraintOutput
+	var describeConstraintOutputA servicecatalog.DescribeConstraintOutput
+	var describeConstraintOutputB servicecatalog.DescribeConstraintOutput
 	var providers []*schema.Provider
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {testAccPreCheck(t)},
@@ -75,10 +77,12 @@ func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
 				Config: testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
 			},
 			{
-				Config: testAccAWSServiceCatalogConstraintLaunchConfigSingle(salt),
+				Config: testAccAWSServiceCatalogConstraintLaunchConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckServiceCatalogConstraintLaunchExists(resourceName, &describeConstraintOutput),
-					testAccCheckServiceCatalogConstraintLaunchDisappears(&describeConstraintOutput),
+					testAccCheckServiceCatalogConstraintLaunchExists(resourceNameA, &describeConstraintOutputA),
+					testAccCheckServiceCatalogConstraintLaunchExists(resourceNameB, &describeConstraintOutputB),
+					testAccCheckServiceCatalogConstraintLaunchDisappears(&describeConstraintOutputA),
+					testAccCheckServiceCatalogConstraintLaunchDisappears(&describeConstraintOutputB),
 				),
 				ExpectNonEmptyPlan: true,
 			},
@@ -126,19 +130,6 @@ resource "aws_servicecatalog_launch_role_constraint" "test_b_local_role_name" {
 }
 `,
 			salt))
-}
-
-func testAccAWSServiceCatalogConstraintLaunchConfigSingle(salt string) string {
-	return composeConfig(
-		testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
-		`
-resource "aws_servicecatalog_launch_role_constraint" "test" {
-  description = "description"
-  role_arn = aws_iam_role.test.arn
-  portfolio_id = aws_servicecatalog_portfolio.test_a.id
-  product_id = aws_servicecatalog_product.test.id
-}
-`)
 }
 
 func testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt string) string {
