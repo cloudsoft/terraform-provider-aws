@@ -25,9 +25,6 @@ func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 		CheckDestroy: testAccCheckServiceCatalogConstraintLaunchDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
-			},
-			{
 				Config: testAccAWSServiceCatalogConstraintLaunchConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraintLaunch(roleArnResourceName, &roleArnDco),
@@ -73,9 +70,6 @@ func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
 		ProviderFactories: testAccProviderFactories(&providers),
 		CheckDestroy:      testAccCheckServiceCatalogConstraintLaunchDestroy,
 		Steps: []resource.TestStep{
-			{
-				Config: testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
-			},
 			{
 				Config: testAccAWSServiceCatalogConstraintLaunchConfig(salt),
 				Check: resource.ComposeTestCheckFunc(

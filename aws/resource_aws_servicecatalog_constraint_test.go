@@ -22,11 +22,7 @@ func TestAccAWSServiceCatalogConstraint_basic(t *testing.T) {
 		CheckDestroy: testAccCheckServiceCatalogConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSServiceCatalogConstraintConfigRequirements(salt),
-			},
-			{
-				PreConfig: testAccAWSServiceCatalogConstraintRolePrepPause(),
-				Config:    testAccAWSServiceCatalogConstraintConfig(salt),
+				Config: testAccAWSServiceCatalogConstraintConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraint(resourceName, &dco),
 					resource.TestCheckResourceAttrSet(resourceName, "portfolio_id"),
@@ -56,9 +52,6 @@ func TestAccAWSServiceCatalogConstraint_disappears(t *testing.T) {
 		CheckDestroy:      testAccCheckServiceCatalogConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSServiceCatalogConstraintConfigRequirements(salt),
-			},
-			{
 				Config: testAccAWSServiceCatalogConstraintConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckServiceCatalogConstraintExists(resourceName, &describeConstraintOutput),
@@ -68,12 +61,6 @@ func TestAccAWSServiceCatalogConstraint_disappears(t *testing.T) {
 			},
 		},
 	})
-}
-
-func testAccAWSServiceCatalogConstraintRolePrepPause() func() {
-	return func() {
-		time.Sleep(11 * time.Second)
-	}
 }
 
 func testAccCheckConstraint(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
