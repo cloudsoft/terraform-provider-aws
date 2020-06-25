@@ -363,8 +363,7 @@ func testAccCheckServiceCatalogConstraintDisappears(describeConstraintOutput *se
 func waitForServiceCatalogConstraintDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
 	input := servicecatalog.DescribeConstraintInput{Id: aws.String(id)}
 	stateConf := resource.StateChangeConf{
-		// TODO use servicecatalog.StatusAvailable or similar constant
-		Pending:      []string{"AVAILABLE"},
+		Pending:      []string{servicecatalog.StatusAvailable},
 		Target:       []string{""},
 		Timeout:      5 * time.Minute,
 		PollInterval: 20 * time.Second,
