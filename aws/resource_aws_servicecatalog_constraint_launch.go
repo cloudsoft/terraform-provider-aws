@@ -101,7 +101,7 @@ func resourceAwsServiceCatalogConstraintLaunchJsonParameters(d *schema.ResourceD
 		launchParameters.LocalRoleName = localRoleName.(string)
 	}
 	if RoleArn, ok := d.GetOk("role_arn"); ok {
-		launchParameters.LocalRoleName = RoleArn.(string)
+		launchParameters.RoleArn = RoleArn.(string)
 	}
 	marshal, err := json.Marshal(&launchParameters)
 	return string(marshal), err
