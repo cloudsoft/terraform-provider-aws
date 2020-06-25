@@ -85,7 +85,6 @@ func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, met
 	if errJson != nil {
 		return errJson
 	}
-	// TODO is there a constant in the AWS SDK for this string?
 	errCreate := resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonDoc, "LAUNCH")
 	if errCreate != nil {
 		return errCreate
