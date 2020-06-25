@@ -190,13 +190,13 @@ data "aws_region" "current" { }
 
 resource "aws_s3_bucket" "bucket" {
   bucket        = "%s"
-  region        = data.aws_region.current.name
+  region        = "${data.aws_region.current.name}"
   acl           = "private"
   force_destroy = true
 }
 
 resource "aws_s3_bucket_object" "template1" {
-  bucket  = aws_s3_bucket.bucket.id
+  bucket  = "${aws_s3_bucket.bucket.id}"
   key     = "test_templates_for_terraform_sc_dev1.json"
   content = <<EOF
 {
