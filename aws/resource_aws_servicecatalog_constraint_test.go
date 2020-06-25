@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
@@ -75,12 +76,63 @@ func TestAccAWSServiceCatalogConstraint_updateDescription(t *testing.T) {
 					resource.TestCheckResourceAttr("aws_servicecatalog_constraint.test", "description", "description")),
 			},
 			{
-				Config: testAccAWSServiceCatalogConstraintConfig(salt, "-updated"),
+				Config: testAccAWSServiceCatalogConstraintConfig(salt, "_updated"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("aws_servicecatalog_constraint.test", "description", "description-updated")),
+					resource.TestCheckResourceAttr("aws_servicecatalog_constraint.test", "description", "description_updated")),
 			},
 		},
 	})
+}
+
+func TestAccAWSServiceCatalogConstraint_updateParameters(t *testing.T) {
+	resourceName := "aws_servicecatalog_constraint.test"
+	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
+	var dco servicecatalog.DescribeConstraintOutput
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSServiceCatalogConstraintConfig(salt, ""),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckConstraint(resourceName, &dco),
+					testAccCheckConstraintParametersLocalRoleName(&dco, "testpath/" + salt)),
+			},
+			{
+				Config: testAccAWSServiceCatalogConstraintConfig(salt, "_updated"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckConstraint(resourceName, &dco),
+					testAccCheckConstraintParametersLocalRoleName(&dco, "testpath/" + salt + "_updated")),
+			},
+		},
+	})
+}
+
+func testAccCheckConstraintParametersLocalRoleName(dco * servicecatalog.DescribeConstraintOutput, expectedLocalRoleName string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		parameters := dco.ConstraintParameters
+		var bytes []byte = []byte(*parameters)
+		//json decode parameters
+		type LaunchParameters struct {
+			LocalRoleName string
+			RoleArn       string
+		}
+		var launchParameters LaunchParameters
+		err := json.Unmarshal(bytes, &launchParameters)
+		if err != nil {
+			return err
+		}
+		// expect key LocalRoleName
+		if launchParameters.LocalRoleName == "" {
+			return fmt.Errorf("parameter LocalRoleName is not set")
+		}
+		// expect value expectedLocalRoleName
+		if launchParameters.LocalRoleName != expectedLocalRoleName {
+			return fmt.Errorf("parameter LocalRoleName is not expected value: '%s' (expected: '%s')",
+				launchParameters.LocalRoleName, expectedLocalRoleName)
+		}
+		return nil // no errors
+	}
 }
 
 func testAccCheckConstraint(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
@@ -92,11 +144,11 @@ func testAccCheckConstraint(resourceName string, dco *servicecatalog.DescribeCon
 		if rs.Primary.ID == "" {
 			return fmt.Errorf("no ID is set")
 		}
-		input := &servicecatalog.DescribeConstraintInput{
+		input := servicecatalog.DescribeConstraintInput{
 			Id: aws.String(rs.Primary.ID),
 		}
 		conn := testAccProvider.Meta().(*AWSClient).scconn
-		resp, err := conn.DescribeConstraint(input)
+		resp, err := conn.DescribeConstraint(&input)
 		if err != nil {
 			return err
 		}
@@ -110,17 +162,17 @@ func testAccAWSServiceCatalogConstraintConfig(salt string, tag string) string {
 		testAccAWSServiceCatalogConstraintConfigRequirements(salt),
 		fmt.Sprintf(`
 resource "aws_servicecatalog_constraint" "test" {
-  description = "description%s"
+  description = "description%[2]s"
   parameters = <<EOF
 {
-  "RoleArn" : "${aws_iam_role.test.arn}"
+  "LocalRoleName": "testpath/%[1]s%[2]s"
 }
 EOF
   portfolio_id = aws_servicecatalog_portfolio.test.id
   product_id = aws_servicecatalog_product.test.id
   type = "LAUNCH"
 }
-`, tag))
+`, salt, tag))
 }
 
 func testAccAWSServiceCatalogConstraintConfigRequirements(salt string) string {
@@ -217,6 +269,28 @@ resource "aws_iam_role" "test" {
 }
 EOF
   description = %[1]q
+  path = "/testpath/"
+  force_detach_policies = false
+  max_session_duration = 3600
+}
+resource "aws_iam_role" "test_alternate" {
+  name = "%[1]s_updated"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "servicecatalog.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+  description = "%[1]s_updated"
   path = "/testpath/"
   force_detach_policies = false
   max_session_duration = 3600
