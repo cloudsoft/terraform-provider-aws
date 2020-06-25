@@ -2,14 +2,15 @@ package aws
 
 import (
 	"fmt"
+	"testing"
+	"time"
+	
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
-	"testing"
-	"time"
 )
 
 func TestAccAWSServiceCatalogConstraint_basic(t *testing.T) {
@@ -62,6 +63,8 @@ func TestAccAWSServiceCatalogConstraint_disappears(t *testing.T) {
 		},
 	})
 }
+
+// TODO test update description
 
 func testAccCheckConstraint(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
@@ -258,8 +261,7 @@ func testAccCheckServiceCatalogConstraintDisappears(describeConstraintOutput *se
 		if err != nil {
 			return fmt.Errorf("could not delete constraint: #{err}")
 		}
-		if err := waitForServiceCatalogConstraintDeletion(conn,
-			aws.StringValue(constraintId)); err != nil {
+		if err := waitForServiceCatalogConstraintDeletion(conn, aws.StringValue(constraintId)); err != nil {
 			return err
 		}
 		return nil
@@ -269,6 +271,7 @@ func testAccCheckServiceCatalogConstraintDisappears(describeConstraintOutput *se
 func waitForServiceCatalogConstraintDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
 	input := servicecatalog.DescribeConstraintInput{Id: aws.String(id)}
 	stateConf := resource.StateChangeConf{
+	    // TODO use servicecatalog.StatusAvailable or similar constant
 		Pending:      []string{"AVAILABLE"},
 		Target:       []string{""},
 		Timeout:      5 * time.Minute,

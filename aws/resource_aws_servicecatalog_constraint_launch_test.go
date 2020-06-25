@@ -2,14 +2,15 @@ package aws
 
 import (
 	"fmt"
+	"testing"
+	"time"
+	
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
-	"testing"
-	"time"
 )
 
 func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
@@ -83,6 +84,8 @@ func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
 		},
 	})
 }
+
+// TODO test update one or both of the roles
 
 func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {

@@ -2,13 +2,14 @@ package aws
 
 import (
 	"encoding/json"
+	"regexp"
 	"fmt"
+	"time"
+	
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
-	"regexp"
-	"time"
 )
 
 func resourceAwsServiceCatalogConstraintLaunch() *schema.Resource {
@@ -46,6 +47,7 @@ func resourceAwsServiceCatalogConstraintLaunch() *schema.Resource {
 			"portfolio_id": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 				ValidateFunc: validation.StringMatch(
 					awsResourceIdPattern,
 					"invalid id format"),
@@ -53,6 +55,7 @@ func resourceAwsServiceCatalogConstraintLaunch() *schema.Resource {
 			"product_id": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 				ValidateFunc: validation.StringMatch(
 					awsResourceIdPattern,
 					"invalid id format"),
@@ -82,6 +85,7 @@ func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, met
 	if errJson != nil {
 		return errJson
 	}
+	// TODO is there a constant in the AWS SDK for this string?
 	errCreate := resourceAwsServiceCatalogConstraintCreateFromJson(d, meta, jsonDoc, "LAUNCH")
 	if errCreate != nil {
 		return errCreate
@@ -90,6 +94,9 @@ func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, met
 }
 
 func resourceAwsServiceCatalogConstraintLaunchJsonParameters(d *schema.ResourceData) (string, error) {
+    // TODO is there not a map-to-json routine we can use instead of the ad-hoc fmt.sprintf call?
+    // TDOO or at least we should do an escapeJson on the value in the jsonDoc assignments below
+     
 	var jsonDoc = ""
 	if localRoleName, localRoleNameProvided := d.GetOk("local_role_name"); localRoleNameProvided {
 		// local role name provided
