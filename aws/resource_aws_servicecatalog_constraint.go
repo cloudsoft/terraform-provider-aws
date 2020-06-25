@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 	"log"
@@ -100,24 +101,31 @@ func resourceAwsServiceCatalogConstraintCreateFromJson(d *schema.ResourceData, m
 		input.Description = aws.String(v.(string))
 	}
 	conn := meta.(*AWSClient).scconn
-	retryCountdown := 10
-	retrySleepDuration := 10 * time.Second
-	for retryCountdown > 0 {
-		retryCountdown--
+	err := resource.Retry(5*time.Minute, func() *resource.RetryError {
 		result, err := conn.CreateConstraint(&input)
 		if err != nil {
-			if scErr, ok := err.(awserr.Error); ok && scErr.Code() == servicecatalog.ErrCodeResourceNotFoundException {
-				log.Printf("Resource not found - retrying...")
-				time.Sleep(retrySleepDuration)
+			if scErr, ok := err.(awserr.Error); ok &&
+				(scErr.Code() == servicecatalog.ErrCodeResourceNotFoundException ||
+					scErr.Code() == servicecatalog.ErrCodeInvalidParametersException) {
+				log.Printf("[INFO] Resource not found - retrying...")
+				return resource.RetryableError(scErr)
 			} else {
-				return fmt.Errorf("creating Constraint failed: %s", err.Error())
+				return resource.NonRetryableError(
+					fmt.Errorf("creating Constraint failed: %s", err.Error()))
 			}
 		} else {
 			d.SetId(*result.ConstraintDetail.ConstraintId)
-			return resourceAwsServiceCatalogConstraintRead(d, meta)
+			err := resourceAwsServiceCatalogConstraintRead(d, meta)
+			if err != nil {
+				return resource.NonRetryableError(err)
+			}
+			return nil
 		}
+	})
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("creating Constraint failed - retry time out")
+	return nil
 }
 
 func resourceAwsServiceCatalogConstraintRead(d *schema.ResourceData, meta interface{}) error {
