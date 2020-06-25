@@ -2,7 +2,6 @@ package aws
 
 import (
 	"encoding/json"
-	"fmt"
 	"regexp"
 	"time"
 
@@ -93,26 +92,19 @@ func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, met
 }
 
 func resourceAwsServiceCatalogConstraintLaunchJsonParameters(d *schema.ResourceData) (string, error) {
-	// TODO is there not a map-to-json routine we can use instead of the ad-hoc fmt.sprintf call?
-	// TDOO or at least we should do an escapeJson on the value in the jsonDoc assignments below
-
-	var jsonDoc = ""
-	if localRoleName, localRoleNameProvided := d.GetOk("local_role_name"); localRoleNameProvided {
-		// local role name provided
-		if _, roleArnProvided := d.GetOk("role_arn"); roleArnProvided {
-			return "", fmt.Errorf("both 'local_role_name' and 'role_arn' should not be provided")
-		}
-		// we have localRoleName
-		jsonDoc = fmt.Sprintf(`{"LocalRoleName": "%s"}`, localRoleName.(string))
-	} else {
-		if roleArn, roleArnProvided := d.GetOk("role_arn"); roleArnProvided {
-			// we have roleArn
-			jsonDoc = fmt.Sprintf(`{"RoleArn" : "%s"}`, roleArn.(string))
-		} else {
-			return "", fmt.Errorf("either 'local_role_name' or 'role_arn' should be provided")
-		}
+	type LaunchParameters struct {
+		LocalRoleName string
+		RoleArn       string
 	}
-	return jsonDoc, nil
+	var launchParameters LaunchParameters
+	if localRoleName, ok := d.GetOk("local_role_name"); ok {
+		launchParameters.LocalRoleName = localRoleName.(string)
+	}
+	if RoleArn, ok := d.GetOk("role_arn"); ok {
+		launchParameters.LocalRoleName = RoleArn.(string)
+	}
+	marshal, err := json.Marshal(&launchParameters)
+	return string(marshal), err
 }
 
 func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta interface{}) error {
