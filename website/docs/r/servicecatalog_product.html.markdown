@@ -1,7 +1,7 @@
 ---
+subcategory: "Service Catalog"
 layout: "aws"
 page_title: "AWS: aws_servicecatalog_product"
-sidebar_current: "docs-aws-resource-servicecatalog-product"
 description: |-
   Provides a resource for a Service Catalog Product definition from which instances can be provisioned.
 ---
@@ -61,7 +61,7 @@ resource "aws_s3_bucket" "my_product_template_bucket" {
 }
 
 resource "aws_s3_bucket_object" "my_product_template_object" {
-  bucket  = "${aws_s3_bucket.my_product_template_bucket.id}"
+  bucket  = aws_s3_bucket.my_product_template_bucket.id
   key     = "my_product_template.json"
   content = <<EOF
 {
@@ -126,5 +126,5 @@ In addition to all arguments above, the following attributes are exported:
 Service Catalog Products can be imported using the service catalog product id, e.g.
 
 ```
-$ terraform import aws_servicecatalog_product.test p-12344321
+$ terraform import aws_servicecatalog_product.test prod-a1b2c3d4e5f6g
 ```

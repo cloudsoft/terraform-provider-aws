@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -36,43 +35,50 @@ func resourceAwsServiceCatalogProvisionedProduct() *schema.Resource {
 				Type:     schema.TypeList,
 				ForceNew: true,
 				Optional: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
+				Elem: &schema.Schema{
+					Type:         schema.TypeString,
+					ValidateFunc: validateArn,
+				},
 			},
 			"path_id": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Computed:     true,
+				ForceNew:     true,
 				ValidateFunc: validation.StringLenBetween(1, 100),
 			},
 			"product_id": {
 				Type:         schema.TypeString,
 				Required:     true,
+				ForceNew:     true,
 				ValidateFunc: validation.StringLenBetween(1, 100),
 			},
 			"provisioned_product_name": {
 				Type:         schema.TypeString,
 				Required:     true,
+				ForceNew:     true,
 				ValidateFunc: validation.StringLenBetween(1, 128),
 			},
 			"provisioning_artifact_id": {
 				Type:         schema.TypeString,
 				Required:     true,
+				ForceNew:     true,
 				ValidateFunc: validation.StringLenBetween(1, 100),
 			},
 			"provisioning_parameters": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeMap,
 				Optional: true,
-				Elem:     &schema.Schema{Type: schema.TypeMap},
+				Elem:     schema.TypeString,
 			},
 			/*
-							// TODO stack set preferences
-							"provisioning_preferences": {
-				                Type:     schema.TypeMap,
-				                Optional: true,
-				                Elem:     <various>
-							},
+				// TODO stack set preferences
+				"provisioning_preferences": {
+					Type:     schema.TypeMap,
+					Optional: true,
+					Elem:     <various>
+				},
 			*/
-			"tags": tagsSchema(),
+			"tags": tagsSchemaForceNew(),
 
 			"arn": {
 				Type:     schema.TypeString,
@@ -82,15 +88,30 @@ func resourceAwsServiceCatalogProvisionedProduct() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"outputs": {
+			"last_record_errors": {
 				Type:     schema.TypeList,
 				Computed: true,
-				Elem:     &schema.Schema{Type: schema.TypeMap},
+				Elem: &schema.Schema{
+					Type: schema.TypeMap,
+					Elem: schema.TypeString,
+				},
 			},
-			"record_errors": {
-				Type:     schema.TypeList,
+			"last_record_id": {
+				Type:     schema.TypeString,
 				Computed: true,
-				Elem:     &schema.Schema{Type: schema.TypeMap},
+			},
+			"last_record_status": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"last_record_type": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"outputs": {
+				Type:     schema.TypeMap,
+				Computed: true,
+				Elem:     schema.TypeString,
 			},
 			"status": {
 				Type:     schema.TypeString,
@@ -129,13 +150,13 @@ func resourceAwsServiceCatalogProvisionedProductCreate(d *schema.ResourceData, m
 	}
 	if v, ok := d.GetOk("provisioning_parameters"); ok {
 		input.ProvisioningParameters = make([]*servicecatalog.ProvisioningParameter, 0)
-		for _, param := range v.([]interface{}) {
+		for k, vv := range v.(map[string]interface{}) {
 			input.ProvisioningParameters = append(input.ProvisioningParameters,
-				&servicecatalog.ProvisioningParameter{Key: aws.String(param.(map[string]interface{})["key"].(string)), Value: aws.String(param.(map[string]interface{})["value"].(string))})
+				&servicecatalog.ProvisioningParameter{Key: aws.String(k), Value: aws.String(vv.(string))})
 		}
 	}
 	/*
-	   // TODO stack set prefs
+	   // TODO stack set prefs - and update docs
 	   if v, ok := d.GetOk("provisioning_preferences"); ok {
 	       input.Description = aws.String(v.(string))
 	   }
@@ -216,7 +237,7 @@ func resourceAwsServiceCatalogProvisionedProductRead(d *schema.ResourceData, met
 	resp, err := conn.DescribeProvisionedProduct(&input)
 
 	if err != nil {
-		if scErr, ok := err.(awserr.Error); ok && scErr.Code() == "ResourceNotFoundException" {
+		if isAWSErr(err, servicecatalog.ErrCodeResourceNotFoundException, "") {
 			log.Printf("[WARN] Service Catalog Provisioned Product %q not found, removing from state", d.Id())
 			d.SetId("")
 			return nil
@@ -245,29 +266,32 @@ func resourceAwsServiceCatalogProvisionedProductRead(d *schema.ResourceData, met
 
 	// from DescribeRecord
 	d.Set("path_id", record.RecordDetail.PathId)
-	d.Set("last_record_type", record.RecordDetail.RecordType)
 	d.Set("updated_time", record.RecordDetail.UpdatedTime.Format(time.RFC3339))
+	d.Set("last_record_type", record.RecordDetail.RecordType)
+	d.Set("last_record_status", record.RecordDetail.Status)
 
-	aa := make([]map[string]string, 0)
+	recordErrors := make([]map[string]string, 0)
 	for _, b := range record.RecordDetail.RecordErrors {
 		bb := make(map[string]string)
 		bb["code"] = aws.StringValue(b.Code)
 		bb["description"] = aws.StringValue(b.Description)
-		aa = append(aa, bb)
+		recordErrors = append(recordErrors, bb)
 	}
-	d.Set("record_errors", aa)
+	err = d.Set("last_record_errors", recordErrors)
+	if err != nil {
+		return fmt.Errorf("invalid errors read on ServiceCatalog provisioned product '%s': %s", d.Id(), err)
+	}
 
-	aa = make([]map[string]string, 0)
+	outputs := make(map[string]string)
 	for _, b := range record.RecordOutputs {
-		bb := make(map[string]string)
-		bb["description"] = aws.StringValue(b.Description)
-		bb["output_key"] = aws.StringValue(b.OutputKey)
-		bb["output_value"] = aws.StringValue(b.OutputValue)
-		aa = append(aa, bb)
+		outputs[aws.StringValue(b.OutputKey)] = aws.StringValue(b.OutputValue)
 	}
-	d.Set("outputs", aa)
+	err = d.Set("outputs", outputs)
+	if err != nil {
+		return fmt.Errorf("invalid outputs read on ServiceCatalog provisioned product '%s': %s", d.Id(), err)
+	}
 
-	//not returned (assume unchanged):
+	//not returned (they should be what we set):
 	// notification_arns
 	// provisioning_parameters
 	// provisioning_preferences
@@ -312,9 +336,9 @@ func resourceAwsServiceCatalogProvisionedProductUpdate(d *schema.ResourceData, m
 	if d.HasChange("provisioning_parameters") {
 		v, _ := d.GetOk("provisioning_parameters")
 		input.ProvisioningParameters = make([]*servicecatalog.UpdateProvisioningParameter, 0)
-		for _, param := range v.([]interface{}) {
+		for k, vv := range v.(map[string]interface{}) {
 			input.ProvisioningParameters = append(input.ProvisioningParameters,
-				&servicecatalog.UpdateProvisioningParameter{Key: aws.String(param.(map[string]interface{})["key"].(string)), Value: aws.String(param.(map[string]interface{})["value"].(string))})
+				&servicecatalog.UpdateProvisioningParameter{Key: aws.String(k), Value: aws.String(vv.(string))})
 		}
 	}
 
@@ -343,8 +367,21 @@ func resourceAwsServiceCatalogProvisionedProductDelete(d *schema.ResourceData, m
 		TerminateToken:       aws.String(resource.UniqueId()),
 	}
 
+	// not available on servicecatalog, but returned here if under change
+	errCodeValidationException := "ValidationException"
+
 	log.Printf("[DEBUG] Delete Service Catalog Provisioned Product: %#v", input)
-	_, err := conn.TerminateProvisionedProduct(&input)
+	err := resource.Retry(1*time.Minute, func() *resource.RetryError {
+		_, err := conn.TerminateProvisionedProduct(&input)
+		if err != nil {
+			if isAWSErr(err, servicecatalog.ErrCodeResourceInUseException, "") || isAWSErr(err, errCodeValidationException, "") {
+				// delay and retry, other things eg associations might still be getting deleted
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("Deleting Service Catalog Provisioned Product '%s' failed: %s", *input.ProvisionedProductId, err.Error())
 	}

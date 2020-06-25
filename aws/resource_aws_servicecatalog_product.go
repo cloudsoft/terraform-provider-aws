@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/terraform-providers/terraform-provider-aws/aws/internal/keyvaluetags"
 )
 
 func resourceAwsServiceCatalogProduct() *schema.Resource {
@@ -175,7 +176,7 @@ func resourceAwsServiceCatalogProductCreate(d *schema.ResourceData, meta interfa
 	for k, v := range paParameters["info"].(map[string]interface{}) {
 		artifactProperties.Info[k] = aws.String(v.(string))
 	}
-	input.IdempotencyToken = aws.String(fmt.Sprintf("%s", resource.UniqueId()))
+	input.IdempotencyToken = aws.String(resource.UniqueId())
 	input.SetProvisioningArtifactParameters(&artifactProperties)
 	log.Printf("[DEBUG] Creating Service Catalog Product: %s %s", input, artifactProperties)
 
@@ -194,25 +195,21 @@ func waitForServiceCatalogProductStatus(conn *servicecatalog.ServiceCatalog, d *
 	stateConf := &resource.StateChangeConf{
 		Pending: []string{servicecatalog.StatusCreating},
 		// "CREATED" is not documented but seems to be the state it goes to
-		Target:       []string{servicecatalog.StatusAvailable, "CREATED"},
-		Refresh:      refreshProductStatus(conn, d.Id()),
+		Target: []string{servicecatalog.StatusAvailable, "CREATED"},
+		Refresh: func() (interface{}, string, error) {
+			resp, err := conn.DescribeProductAsAdmin(&servicecatalog.DescribeProductAsAdminInput{
+				Id: aws.String(d.Id()),
+			})
+			if err != nil {
+				return nil, "", err
+			}
+			return resp, aws.StringValue(resp.ProductViewDetail.Status), nil
+		},
 		Timeout:      d.Timeout(schema.TimeoutCreate),
 		PollInterval: 3 * time.Second,
 	}
 	_, err := stateConf.WaitForState()
 	return err
-}
-
-func refreshProductStatus(conn *servicecatalog.ServiceCatalog, id string) resource.StateRefreshFunc {
-	return func() (result interface{}, state string, err error) {
-		resp, err := conn.DescribeProductAsAdmin(&servicecatalog.DescribeProductAsAdminInput{
-			Id: aws.String(id),
-		})
-		if err != nil {
-			return nil, "", err
-		}
-		return resp, aws.StringValue(resp.ProductViewDetail.Status), nil
-	}
 }
 
 func waitForServiceCatalogProductDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
@@ -255,7 +252,11 @@ func resourceAwsServiceCatalogProductRead(d *schema.ResourceData, meta interface
 	}
 
 	d.Set("product_arn", resp.ProductViewDetail.ProductARN)
-	d.Set("tags", tagsToMapServiceCatalog(resp.Tags))
+
+	err = d.Set("tags", tagsToMapServiceCatalog(keyvaluetags.ServicecatalogKeyValueTags(resp.Tags).IgnoreAws().IgnoreConfig(meta.(*AWSClient).IgnoreTagsConfig).Map()))
+	if err != nil {
+		return fmt.Errorf("invalid tags read on ServiceCatalog product '%s': %s", d.Id(), err)
+	}
 
 	product := resp.ProductViewDetail.ProductViewSummary
 	d.Set("has_default_path", aws.BoolValue(product.HasDefaultPath))
@@ -350,12 +351,17 @@ func resourceAwsServiceCatalogProductUpdate(d *schema.ResourceData, meta interfa
 	if d.HasChange("tags") {
 		oldTags, newTags := d.GetChange("tags")
 		removeTags := make([]*string, 0)
-		for k := range oldTags.(map[string]interface{}) {
-			if _, ok := (newTags.(map[string]interface{}))[k]; !ok {
-				removeTags = append(removeTags, &k)
+		addTags := make(map[string]interface{})
+		for k, v1 := range oldTags.(map[string]interface{}) {
+			v2, ok := (newTags.(map[string]interface{}))[k]
+			kk := k // copy, as &k is changing
+			if !ok {
+				removeTags = append(removeTags, &kk)
+			} else if v2 != v1 {
+				removeTags = append(removeTags, &kk)
+				addTags[k] = v2
 			}
 		}
-		addTags := make(map[string]interface{})
 		for k, v := range newTags.(map[string]interface{}) {
 			if _, ok := (oldTags.(map[string]interface{}))[k]; !ok {
 				addTags[k] = v
@@ -377,7 +383,7 @@ func resourceAwsServiceCatalogProductUpdate(d *schema.ResourceData, meta interfa
 
 	// this change is slightly more complicated as basically we need to update the provisioning artifact
 	if d.HasChange("provisioning_artifact") {
-		_, newProvisioningArtifactList := d.GetChange("provisioning_artifact")
+		newProvisioningArtifactList := d.Get("provisioning_artifact")
 		newProvisioningArtifact := (newProvisioningArtifactList.([]interface{}))[0].(map[string]interface{})
 		paId := newProvisioningArtifact["id"].(string)
 		_, err := conn.UpdateProvisioningArtifact(&servicecatalog.UpdateProvisioningArtifactInput{
@@ -435,11 +441,10 @@ func tagsFromMapServiceCatalog(m map[string]interface{}) []*servicecatalog.Tag {
 }
 
 // tagsToMap turns the list of tags into a map.
-func tagsToMapServiceCatalog(ts []*servicecatalog.Tag) map[string]string {
+func tagsToMapServiceCatalog(ts map[string]string) map[string]string {
 	result := make(map[string]string)
-	for _, t := range ts {
-		result[aws.StringValue(t.Key)] = aws.StringValue(t.Value)
+	for k, v := range ts {
+		result[aws.StringValue(&k)] = aws.StringValue(&v)
 	}
-
 	return result
 }
