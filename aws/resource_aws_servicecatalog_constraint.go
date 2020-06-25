@@ -2,25 +2,25 @@ package aws
 
 import (
 	"fmt"
+	"log"
+	"regexp"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
-	"log"
-	"regexp"
-	"time"
 )
 
 /*
+This resource is used as a base for the multiple aws_servicecatalog_*_constraint resources,
+all of which use the same CreateConstraint API, but with specific parameters.
 
-This resource is intended to be used as a base for the following resources.
-
-It can be used as-is where the parameters are supplied as a JSON document.
-
-Use of the wrapper resources, aws_servicecatalog_launch_role_constraint, etc, are suggested.
-
+This can be used as-is where the parameters are supplied as a JSON document,
+though in most cases the more specific aws_servicecatalog_*_constraint will be more appropriate
+(in line with how AWS CloudFormation models this, as opposed to the AWS API).
 */
 func resourceAwsServiceCatalogConstraint() *schema.Resource {
 	var awsResourceIdPattern = regexp.MustCompile("^[a-zA-Z0-9_\\-]*")
@@ -50,6 +50,7 @@ func resourceAwsServiceCatalogConstraint() *schema.Resource {
 			"portfolio_id": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 				ValidateFunc: validation.StringMatch(
 					awsResourceIdPattern,
 					"invalid id format"),
@@ -57,6 +58,7 @@ func resourceAwsServiceCatalogConstraint() *schema.Resource {
 			"product_id": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 				ValidateFunc: validation.StringMatch(
 					awsResourceIdPattern,
 					"invalid id format"),
@@ -64,6 +66,7 @@ func resourceAwsServiceCatalogConstraint() *schema.Resource {
 			"type": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 				ValidateFunc: validation.StringInSlice([]string{
 					"LAUNCH",
 					"NOTIFICATION",
@@ -101,17 +104,17 @@ func resourceAwsServiceCatalogConstraintCreateFromJson(d *schema.ResourceData, m
 		input.Description = aws.String(v.(string))
 	}
 	conn := meta.(*AWSClient).scconn
-	err := resource.Retry(5*time.Minute, func() *resource.RetryError {
+	return resource.Retry(5*time.Minute, func() *resource.RetryError {
 		result, err := conn.CreateConstraint(&input)
 		if err != nil {
 			if scErr, ok := err.(awserr.Error); ok &&
 				(scErr.Code() == servicecatalog.ErrCodeResourceNotFoundException ||
 					scErr.Code() == servicecatalog.ErrCodeInvalidParametersException) {
-				log.Printf("[INFO] Resource not found - retrying...")
+				log.Printf("[DEBUG] Invalid parameters for constraint - retrying as this may mean dependencies are stabilizing...")
 				return resource.RetryableError(scErr)
 			} else {
 				return resource.NonRetryableError(
-					fmt.Errorf("creating Constraint failed: %s", err.Error()))
+					fmt.Errorf("creating constraint failed: %s", err.Error()))
 			}
 		} else {
 			d.SetId(*result.ConstraintDetail.ConstraintId)
@@ -122,10 +125,6 @@ func resourceAwsServiceCatalogConstraintCreateFromJson(d *schema.ResourceData, m
 			return nil
 		}
 	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func resourceAwsServiceCatalogConstraintRead(d *schema.ResourceData, meta interface{}) error {
@@ -169,9 +168,9 @@ func resourceAwsServiceCatalogConstraintUpdate(d *schema.ResourceData, meta inte
 		v, _ := d.GetOk("parameters")
 		input.Parameters = aws.String(v.(string))
 	}
-	err2 := resourceAwsServiceCatalogConstraintUpdateBase(d, meta, input)
-	if err2 != nil {
-		return err2
+	err := resourceAwsServiceCatalogConstraintUpdateBase(d, meta, input)
+	if err != nil {
+		return err
 	}
 	return resourceAwsServiceCatalogConstraintRead(d, meta)
 }
@@ -182,15 +181,7 @@ func resourceAwsServiceCatalogConstraintUpdateBase(d *schema.ResourceData, meta 
 		v, _ := d.GetOk("description")
 		input.Description = aws.String(v.(string))
 	}
-	if d.HasChange("portfolio_id") {
-		//TODO - can't update - requires replace
-	}
-	if d.HasChange("") {
-		//TODO - can't update - requires replace
-	}
-	if d.HasChange("") {
-		//TODO - can't update - requires replace
-	}
+	// portfolio_id and product_id force new so won't come here
 	conn := meta.(*AWSClient).scconn
 	_, err := conn.UpdateConstraint(&input)
 	if err != nil {
@@ -202,12 +193,12 @@ func resourceAwsServiceCatalogConstraintUpdateBase(d *schema.ResourceData, meta 
 func resourceAwsServiceCatalogConstraintDelete(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).scconn
 	constraintId := d.Id()
-	fmt.Printf("Deleting constraint: %s\n", constraintId)
+	log.Printf("[DEBUG] Deleting constraint: %s\n", constraintId)
 	input := servicecatalog.DeleteConstraintInput{Id: aws.String(constraintId)}
 	_, err := conn.DeleteConstraint(&input)
 	if err != nil {
 		return fmt.Errorf("deleting Service Catalog Constraint '%s' failed: %s", *input.Id, err.Error())
 	}
-	fmt.Printf("Deleted constraint: %s\n", constraintId)
+	log.Printf("Deleted constraint: %s\n", constraintId)
 	return nil
 }

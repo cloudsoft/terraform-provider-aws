@@ -3,14 +3,15 @@ package aws
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/servicecatalog"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
-	"testing"
-	"time"
 )
 
 func TestAccAWSServiceCatalogConstraint_basic(t *testing.T) {
@@ -67,7 +68,7 @@ func TestAccAWSServiceCatalogConstraint_disappears(t *testing.T) {
 func TestAccAWSServiceCatalogConstraint_updateDescription(t *testing.T) {
 	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:  func() { testAccPreCheck(t) },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
@@ -89,26 +90,26 @@ func TestAccAWSServiceCatalogConstraint_updateParameters(t *testing.T) {
 	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
 	var dco servicecatalog.DescribeConstraintOutput
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:  func() { testAccPreCheck(t) },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAWSServiceCatalogConstraintConfig(salt, ""),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraint(resourceName, &dco),
-					testAccCheckConstraintParametersLocalRoleName(&dco, "testpath/" + salt)),
+					testAccCheckConstraintParametersLocalRoleName(&dco, "testpath/"+salt)),
 			},
 			{
 				Config: testAccAWSServiceCatalogConstraintConfig(salt, "_updated"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraint(resourceName, &dco),
-					testAccCheckConstraintParametersLocalRoleName(&dco, "testpath/" + salt + "_updated")),
+					testAccCheckConstraintParametersLocalRoleName(&dco, "testpath/"+salt+"_updated")),
 			},
 		},
 	})
 }
 
-func testAccCheckConstraintParametersLocalRoleName(dco * servicecatalog.DescribeConstraintOutput, expectedLocalRoleName string) resource.TestCheckFunc {
+func testAccCheckConstraintParametersLocalRoleName(dco *servicecatalog.DescribeConstraintOutput, expectedLocalRoleName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		parameters := dco.ConstraintParameters
 		var bytes []byte = []byte(*parameters)
@@ -352,8 +353,7 @@ func testAccCheckServiceCatalogConstraintDisappears(describeConstraintOutput *se
 		if err != nil {
 			return fmt.Errorf("could not delete constraint: #{err}")
 		}
-		if err := waitForServiceCatalogConstraintDeletion(conn,
-			aws.StringValue(constraintId)); err != nil {
+		if err := waitForServiceCatalogConstraintDeletion(conn, aws.StringValue(constraintId)); err != nil {
 			return err
 		}
 		return nil
@@ -363,6 +363,7 @@ func testAccCheckServiceCatalogConstraintDisappears(describeConstraintOutput *se
 func waitForServiceCatalogConstraintDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
 	input := servicecatalog.DescribeConstraintInput{Id: aws.String(id)}
 	stateConf := resource.StateChangeConf{
+		// TODO use servicecatalog.StatusAvailable or similar constant
 		Pending:      []string{"AVAILABLE"},
 		Target:       []string{""},
 		Timeout:      5 * time.Minute,
