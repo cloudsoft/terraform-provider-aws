@@ -22,7 +22,7 @@ func TestAccAWSServiceCatalogConstraint_basic(t *testing.T) {
 		CheckDestroy: testAccCheckServiceCatalogConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSServiceCatalogConstraintConfig(salt),
+				Config: testAccAWSServiceCatalogConstraintConfig(salt, ""),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckConstraint(resourceName, &dco),
 					resource.TestCheckResourceAttrSet(resourceName, "portfolio_id"),
@@ -52,12 +52,32 @@ func TestAccAWSServiceCatalogConstraint_disappears(t *testing.T) {
 		CheckDestroy:      testAccCheckServiceCatalogConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSServiceCatalogConstraintConfig(salt),
+				Config: testAccAWSServiceCatalogConstraintConfig(salt, ""),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckServiceCatalogConstraintExists(resourceName, &describeConstraintOutput),
 					testAccCheckServiceCatalogConstraintDisappears(&describeConstraintOutput),
 				),
 				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
+func TestAccAWSServiceCatalogConstraint_updateDescription(t *testing.T) {
+	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSServiceCatalogConstraintConfig(salt, ""),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("aws_servicecatalog_constraint.test", "description", "description")),
+			},
+			{
+				Config: testAccAWSServiceCatalogConstraintConfig(salt, "-updated"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("aws_servicecatalog_constraint.test", "description", "description-updated")),
 			},
 		},
 	})
@@ -85,12 +105,12 @@ func testAccCheckConstraint(resourceName string, dco *servicecatalog.DescribeCon
 	}
 }
 
-func testAccAWSServiceCatalogConstraintConfig(salt string) string {
+func testAccAWSServiceCatalogConstraintConfig(salt string, tag string) string {
 	return composeConfig(
 		testAccAWSServiceCatalogConstraintConfigRequirements(salt),
-		`
+		fmt.Sprintf(`
 resource "aws_servicecatalog_constraint" "test" {
-  description = "description"
+  description = "description%s"
   parameters = <<EOF
 {
   "RoleArn" : "${aws_iam_role.test.arn}"
@@ -100,7 +120,7 @@ EOF
   product_id = aws_servicecatalog_product.test.id
   type = "LAUNCH"
 }
-`)
+`, tag))
 }
 
 func testAccAWSServiceCatalogConstraintConfigRequirements(salt string) string {
