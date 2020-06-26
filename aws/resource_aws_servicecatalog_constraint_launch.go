@@ -2,6 +2,7 @@ package aws
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"time"
 
@@ -92,19 +93,24 @@ func resourceAwsServiceCatalogConstraintLaunchCreate(d *schema.ResourceData, met
 }
 
 func resourceAwsServiceCatalogConstraintLaunchJsonParameters(d *schema.ResourceData) (string, error) {
-	type LaunchParameters struct {
-		LocalRoleName string
-		RoleArn       string
-	}
-	var launchParameters LaunchParameters
-	if localRoleName, ok := d.GetOk("local_role_name"); ok {
+	if localRoleName, ok := d.GetOk("local_role_name"); ok && localRoleName != "" {
+		type LocalRoleNameLaunchParameters struct {
+			LocalRoleName string
+		}
+		var launchParameters LocalRoleNameLaunchParameters
 		launchParameters.LocalRoleName = localRoleName.(string)
+		marshal, err := json.Marshal(&launchParameters)
+		return string(marshal), err
+	} else if roleArn, ok := d.GetOk("role_arn"); ok && roleArn != "" {
+		type LocalRoleNameLaunchParameters struct {
+			RoleArn string
+		}
+		var launchParameters LocalRoleNameLaunchParameters
+		launchParameters.RoleArn = roleArn.(string)
+		marshal, err := json.Marshal(&launchParameters)
+		return string(marshal), err
 	}
-	if RoleArn, ok := d.GetOk("role_arn"); ok {
-		launchParameters.RoleArn = RoleArn.(string)
-	}
-	marshal, err := json.Marshal(&launchParameters)
-	return string(marshal), err
+	return "", fmt.Errorf("either local_role_name or role_arn must be specified")
 }
 
 func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta interface{}) error {
@@ -128,9 +134,10 @@ func resourceAwsServiceCatalogConstraintLaunchRead(d *schema.ResourceData, meta 
 	}
 	if launchParameters.LocalRoleName != "" {
 		d.Set("local_role_name", launchParameters.LocalRoleName)
-	}
-	if launchParameters.RoleArn != "" {
+		d.Set("role_arn", nil)
+	} else if launchParameters.RoleArn != "" {
 		d.Set("role_arn", launchParameters.RoleArn)
+		d.Set("local_role_name", nil)
 	}
 	return nil
 }

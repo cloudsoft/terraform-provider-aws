@@ -34,7 +34,7 @@ func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(roleArnResourceName, "description", "description"),
 					resource.TestCheckResourceAttr(roleArnResourceName, "type", "LAUNCH"),
 					resource.TestCheckResourceAttrSet(roleArnResourceName, "role_arn"),
-					resource.TestCheckNoResourceAttr(roleArnResourceName, "local_role_name"),
+					resource.TestCheckResourceAttr(roleArnResourceName, "local_role_name", ""),
 
 					testAccCheckConstraintLaunch(localRoleNameResourceName, &localRoleNameDco),
 					resource.TestCheckResourceAttrSet(localRoleNameResourceName, "portfolio_id"),
@@ -42,7 +42,7 @@ func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(localRoleNameResourceName, "description", "description"),
 					resource.TestCheckResourceAttr(localRoleNameResourceName, "type", "LAUNCH"),
 					resource.TestCheckResourceAttrSet(localRoleNameResourceName, "local_role_name"),
-					resource.TestCheckNoResourceAttr(localRoleNameResourceName, "role_arn"),
+					resource.TestCheckResourceAttr(localRoleNameResourceName, "role_arn", ""),
 				),
 			},
 			{
@@ -85,7 +85,40 @@ func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
 	})
 }
 
-// TODO test update one or both of the roles
+func TestAccAWSServiceCatalogConstraintLaunch_updateParameters(t *testing.T) {
+	resourceName := "aws_servicecatalog_launch_role_constraint.test"
+	roleArnResourceName := resourceName + "_a_role_arn"
+	localRoleNameResourceName := resourceName + "_b_local_role_name"
+	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckServiceCatalogConstraintLaunchDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSServiceCatalogConstraintLaunchConfig(salt),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet(roleArnResourceName, "role_arn"),
+					resource.TestCheckResourceAttr(roleArnResourceName, "local_role_name", ""),
+
+					resource.TestCheckResourceAttrSet(localRoleNameResourceName, "local_role_name"),
+					resource.TestCheckResourceAttr(localRoleNameResourceName, "role_arn", ""),
+				),
+			},
+			{
+				// now swap the local_role_name and role_arn on each launch role constraint
+				Config: testAccAWSServiceCatalogConstraintLaunchConfigAlternate(salt),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet(roleArnResourceName, "local_role_name"),
+					resource.TestCheckResourceAttr(roleArnResourceName, "role_arn", ""),
+
+					resource.TestCheckResourceAttrSet(localRoleNameResourceName, "role_arn"),
+					resource.TestCheckResourceAttr(localRoleNameResourceName, "local_role_name", ""),
+				),
+			},
+		},
+	})
+}
 
 func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
@@ -122,6 +155,27 @@ resource "aws_servicecatalog_launch_role_constraint" "test_a_role_arn" {
 resource "aws_servicecatalog_launch_role_constraint" "test_b_local_role_name" {
   description = "description"
   local_role_name = "testpath/tfm-test-%[1]s"
+  portfolio_id = aws_servicecatalog_portfolio.test_b.id
+  product_id = aws_servicecatalog_product.test.id
+}
+`,
+			salt))
+}
+
+// as above, but with each constraint having swapped local_role_name and role_arn parameters
+func testAccAWSServiceCatalogConstraintLaunchConfigAlternate(salt string) string {
+	return composeConfig(
+		testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
+		fmt.Sprintf(`
+resource "aws_servicecatalog_launch_role_constraint" "test_a_role_arn" {
+  description = "description"
+  local_role_name = "testpath/tfm-test-%[1]s"
+  portfolio_id = aws_servicecatalog_portfolio.test_a.id
+  product_id = aws_servicecatalog_product.test.id
+}
+resource "aws_servicecatalog_launch_role_constraint" "test_b_local_role_name" {
+  description = "description"
+  role_arn = aws_iam_role.test.arn
   portfolio_id = aws_servicecatalog_portfolio.test_b.id
   product_id = aws_servicecatalog_product.test.id
 }
