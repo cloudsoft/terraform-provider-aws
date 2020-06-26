@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
-func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
+func TestAccAWSServiceCatalogLaunchRoleConstraint_basic(t *testing.T) {
 	resourceName := "aws_servicecatalog_launch_role_constraint.test"
 	roleArnResourceName := resourceName + "_a_role_arn"
 	localRoleNameResourceName := resourceName + "_b_local_role_name"
@@ -23,12 +23,12 @@ func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckServiceCatalogConstraintLaunchDestroy,
+		CheckDestroy: testAccCheckServiceCatalogLaunchRoleConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSServiceCatalogConstraintLaunchConfig(salt),
+				Config: testAccAWSServiceCatalogLaunchRoleConstraintConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckConstraintLaunch(roleArnResourceName, &roleArnDco),
+					testAccCheckLaunchRoleConstraint(roleArnResourceName, &roleArnDco),
 					resource.TestCheckResourceAttrSet(roleArnResourceName, "portfolio_id"),
 					resource.TestCheckResourceAttrSet(roleArnResourceName, "product_id"),
 					resource.TestCheckResourceAttr(roleArnResourceName, "description", "description"),
@@ -36,7 +36,7 @@ func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(roleArnResourceName, "role_arn"),
 					resource.TestCheckResourceAttr(roleArnResourceName, "local_role_name", ""),
 
-					testAccCheckConstraintLaunch(localRoleNameResourceName, &localRoleNameDco),
+					testAccCheckLaunchRoleConstraint(localRoleNameResourceName, &localRoleNameDco),
 					resource.TestCheckResourceAttrSet(localRoleNameResourceName, "portfolio_id"),
 					resource.TestCheckResourceAttrSet(localRoleNameResourceName, "product_id"),
 					resource.TestCheckResourceAttr(localRoleNameResourceName, "description", "description"),
@@ -59,7 +59,7 @@ func TestAccAWSServiceCatalogConstraintLaunch_basic(t *testing.T) {
 	})
 }
 
-func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
+func TestAccAWSServiceCatalogLaunchRoleConstraint_disappears(t *testing.T) {
 	resourceNameA := "aws_servicecatalog_launch_role_constraint.test_a_role_arn"
 	resourceNameB := "aws_servicecatalog_launch_role_constraint.test_b_local_role_name"
 	salt := acctest.RandStringFromCharSet(5, acctest.CharSetAlpha)
@@ -69,15 +69,15 @@ func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
 		ProviderFactories: testAccProviderFactories(&providers),
-		CheckDestroy:      testAccCheckServiceCatalogConstraintLaunchDestroy,
+		CheckDestroy:      testAccCheckServiceCatalogLaunchRoleConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSServiceCatalogConstraintLaunchConfig(salt),
+				Config: testAccAWSServiceCatalogLaunchRoleConstraintConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckServiceCatalogConstraintLaunchExists(resourceNameA, &describeConstraintOutputA),
-					testAccCheckServiceCatalogConstraintLaunchExists(resourceNameB, &describeConstraintOutputB),
-					testAccCheckServiceCatalogConstraintLaunchDisappears(&describeConstraintOutputA),
-					testAccCheckServiceCatalogConstraintLaunchDisappears(&describeConstraintOutputB),
+					testAccCheckServiceCatalogLaunchRoleConstraintExists(resourceNameA, &describeConstraintOutputA),
+					testAccCheckServiceCatalogLaunchRoleConstraintExists(resourceNameB, &describeConstraintOutputB),
+					testAccCheckServiceCatalogLaunchRoleConstraintDisappears(&describeConstraintOutputA),
+					testAccCheckServiceCatalogLaunchRoleConstraintDisappears(&describeConstraintOutputB),
 				),
 				ExpectNonEmptyPlan: true,
 			},
@@ -85,7 +85,7 @@ func TestAccAWSServiceCatalogConstraintLaunch_disappears(t *testing.T) {
 	})
 }
 
-func TestAccAWSServiceCatalogConstraintLaunch_updateParameters(t *testing.T) {
+func TestAccAWSServiceCatalogLaunchRoleConstraint_updateParameters(t *testing.T) {
 	resourceName := "aws_servicecatalog_launch_role_constraint.test"
 	roleArnResourceName := resourceName + "_a_role_arn"
 	localRoleNameResourceName := resourceName + "_b_local_role_name"
@@ -93,10 +93,10 @@ func TestAccAWSServiceCatalogConstraintLaunch_updateParameters(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckServiceCatalogConstraintLaunchDestroy,
+		CheckDestroy: testAccCheckServiceCatalogLaunchRoleConstraintDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSServiceCatalogConstraintLaunchConfig(salt),
+				Config: testAccAWSServiceCatalogLaunchRoleConstraintConfig(salt),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet(roleArnResourceName, "role_arn"),
 					resource.TestCheckResourceAttr(roleArnResourceName, "local_role_name", ""),
@@ -107,7 +107,7 @@ func TestAccAWSServiceCatalogConstraintLaunch_updateParameters(t *testing.T) {
 			},
 			{
 				// now swap the local_role_name and role_arn on each launch role constraint
-				Config: testAccAWSServiceCatalogConstraintLaunchConfigAlternate(salt),
+				Config: testAccAWSServiceCatalogLaunchRoleConstraintConfigAlternate(salt),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet(roleArnResourceName, "local_role_name"),
 					resource.TestCheckResourceAttr(roleArnResourceName, "role_arn", ""),
@@ -120,7 +120,7 @@ func TestAccAWSServiceCatalogConstraintLaunch_updateParameters(t *testing.T) {
 	})
 }
 
-func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
+func testAccCheckLaunchRoleConstraint(resourceName string, dco *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
 		if !ok {
@@ -142,9 +142,9 @@ func testAccCheckConstraintLaunch(resourceName string, dco *servicecatalog.Descr
 	}
 }
 
-func testAccAWSServiceCatalogConstraintLaunchConfig(salt string) string {
+func testAccAWSServiceCatalogLaunchRoleConstraintConfig(salt string) string {
 	return composeConfig(
-		testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
+		testAccAWSServiceCatalogLaunchRoleConstraintConfigRequirements(salt),
 		fmt.Sprintf(`
 resource "aws_servicecatalog_launch_role_constraint" "test_a_role_arn" {
   description = "description"
@@ -163,9 +163,9 @@ resource "aws_servicecatalog_launch_role_constraint" "test_b_local_role_name" {
 }
 
 // as above, but with each constraint having swapped local_role_name and role_arn parameters
-func testAccAWSServiceCatalogConstraintLaunchConfigAlternate(salt string) string {
+func testAccAWSServiceCatalogLaunchRoleConstraintConfigAlternate(salt string) string {
 	return composeConfig(
-		testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt),
+		testAccAWSServiceCatalogLaunchRoleConstraintConfigRequirements(salt),
 		fmt.Sprintf(`
 resource "aws_servicecatalog_launch_role_constraint" "test_a_role_arn" {
   description = "description"
@@ -183,16 +183,16 @@ resource "aws_servicecatalog_launch_role_constraint" "test_b_local_role_name" {
 			salt))
 }
 
-func testAccAWSServiceCatalogConstraintLaunchConfigRequirements(salt string) string {
+func testAccAWSServiceCatalogLaunchRoleConstraintConfigRequirements(salt string) string {
 	return composeConfig(
-		testAccAWSServiceCatalogConstraintLaunchConfig_role(salt),
-		testAccAWSServiceCatalogConstraintLaunchConfig_portfolios(salt),
-		testAccAWSServiceCatalogConstraintLaunchConfig_product(salt),
-		testAccAWSServiceCatalogConstraintLaunchConfig_portfolioProductAssociations(),
+		testAccAWSServiceCatalogLaunchRoleConstraintConfig_role(salt),
+		testAccAWSServiceCatalogLaunchRoleConstraintConfig_portfolios(salt),
+		testAccAWSServiceCatalogLaunchRoleConstraintConfig_product(salt),
+		testAccAWSServiceCatalogLaunchRoleConstraintConfig_portfolioProductAssociations(),
 	)
 }
 
-func testAccAWSServiceCatalogConstraintLaunchConfig_role(salt string) string {
+func testAccAWSServiceCatalogLaunchRoleConstraintConfig_role(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_iam_role" "test" {
   name = "tfm-test-%[1]s"
@@ -219,7 +219,7 @@ EOF
 `, salt)
 }
 
-func testAccAWSServiceCatalogConstraintLaunchConfig_portfolios(salt string) string {
+func testAccAWSServiceCatalogLaunchRoleConstraintConfig_portfolios(salt string) string {
 	return fmt.Sprintf(`
 resource "aws_servicecatalog_portfolio" "test_a" {
   name          = "tfm-test-%[1]s-A"
@@ -234,7 +234,7 @@ resource "aws_servicecatalog_portfolio" "test_b" {
 `, salt)
 }
 
-func testAccAWSServiceCatalogConstraintLaunchConfig_product(salt string) string {
+func testAccAWSServiceCatalogLaunchRoleConstraintConfig_product(salt string) string {
 	return fmt.Sprintf(`
 data "aws_region" "current" { }
 
@@ -281,7 +281,7 @@ resource "aws_servicecatalog_product" "test" {
 }`, salt)
 }
 
-func testAccAWSServiceCatalogConstraintLaunchConfig_portfolioProductAssociations() string {
+func testAccAWSServiceCatalogLaunchRoleConstraintConfig_portfolioProductAssociations() string {
 	return `
 resource "aws_servicecatalog_portfolio_product_association" "test_a" {
     portfolio_id = aws_servicecatalog_portfolio.test_a.id
@@ -294,7 +294,7 @@ resource "aws_servicecatalog_portfolio_product_association" "test_b" {
 `
 }
 
-func testAccCheckServiceCatalogConstraintLaunchDestroy(s *terraform.State) error {
+func testAccCheckServiceCatalogLaunchRoleConstraintDestroy(s *terraform.State) error {
 	conn := testAccProvider.Meta().(*AWSClient).scconn
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "aws_servicecatalog_launch_role_constraint" {
@@ -309,7 +309,7 @@ func testAccCheckServiceCatalogConstraintLaunchDestroy(s *terraform.State) error
 	return nil
 }
 
-func testAccCheckServiceCatalogConstraintLaunchExists(resourceName string, describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
+func testAccCheckServiceCatalogLaunchRoleConstraintExists(resourceName string, describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
 		if !ok {
@@ -329,7 +329,7 @@ func testAccCheckServiceCatalogConstraintLaunchExists(resourceName string, descr
 	}
 }
 
-func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
+func testAccCheckServiceCatalogLaunchRoleConstraintDisappears(describeConstraintOutput *servicecatalog.DescribeConstraintOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		conn := testAccProvider.Meta().(*AWSClient).scconn
 		constraintId := describeConstraintOutput.ConstraintDetail.ConstraintId
@@ -348,7 +348,7 @@ func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutp
 		if err != nil {
 			return fmt.Errorf("could not delete launch role constraint: #{err}")
 		}
-		if err := waitForServiceCatalogConstraintLaunchDeletion(conn,
+		if err := waitForServiceCatalogLaunchRoleConstraintDeletion(conn,
 			aws.StringValue(constraintId)); err != nil {
 			return err
 		}
@@ -356,7 +356,7 @@ func testAccCheckServiceCatalogConstraintLaunchDisappears(describeConstraintOutp
 	}
 }
 
-func waitForServiceCatalogConstraintLaunchDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
+func waitForServiceCatalogLaunchRoleConstraintDeletion(conn *servicecatalog.ServiceCatalog, id string) error {
 	input := servicecatalog.DescribeConstraintInput{Id: aws.String(id)}
 	stateConf := resource.StateChangeConf{
 		Pending:      []string{"AVAILABLE"},
