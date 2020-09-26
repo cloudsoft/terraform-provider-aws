@@ -45,7 +45,7 @@ resource "aws_servicecatalog_product" "test_existing_template" {
   }
 
   tags {
-     Foo = "bar"
+    Foo = "bar"
   }
 }
 ```
@@ -61,7 +61,7 @@ resource "aws_s3_bucket" "my_product_template_bucket" {
 }
 
 resource "aws_s3_bucket_object" "my_product_template_object" {
-  bucket  = "${aws_s3_bucket.my_product_template_bucket.id}"
+  bucket  = aws_s3_bucket.my_product_template_bucket.id
   key     = "my_product_template.json"
   content = <<EOF
 {
@@ -77,12 +77,12 @@ EOF
 }
 
 resource "aws_servicecatalog_product" "minimal_test_new_template" {
-  name                = "My New Minimal Product"
-  owner               = "arbitrary owner"
-  product_type        = "CLOUD_FORMATION_TEMPLATE"
+  name         = "My New Minimal Product"
+  owner        = "arbitrary owner"
+  product_type = "CLOUD_FORMATION_TEMPLATE"
 
   provisioning_artifact {
-    name        = "v1.0.0"
+    name = "v1.0.0"
     info {
       LoadTemplateFromURL = "https://s3.amazonaws.com/${aws_s3_bucket.my_product_template_bucket.id}/${aws_s3_bucket_object.my_product_template_object.key}"
     }
@@ -126,5 +126,5 @@ In addition to all arguments above, the following attributes are exported:
 Service Catalog Products can be imported using the service catalog product id, e.g.
 
 ```
-$ terraform import aws_servicecatalog_product.test p-12344321
+$ terraform import aws_servicecatalog_product.test prod-a1b2c3d4e5f6g
 ```
